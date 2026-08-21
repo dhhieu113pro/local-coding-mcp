@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/.vs/
+**/TestResults/
+**/CoverageResults/
+**/Cov100*/
+**/*.zip
+**/_*.json
+**/.git/
+**/.github/
+**/LocalCodingMcp.Tests/
+**/*.user
+**/*.swp
+**/Dockerfile
+**/docker-compose*.yml
+**/.dockerignore

@@ -1,0 +1,36 @@
+# LocalCodingMcp — run from WSL / Docker Desktop
+#
+# Usage (from repo root in WSL):
+#   docker compose up --build
+#
+# Mount your real project folders under /workspace (or change AllowedRoots).
+
+services:
+  local-coding-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local-coding-mcp:latest
+    container_name: local-coding-mcp
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_URLS: "http://0.0.0.0:5000"
+      ASPNETCORE_ENVIRONMENT: Production
+      # Allowed roots inside the container (must match mounted paths)
+      AllowedRoots__0: /workspace
+      CommandTimeoutSeconds: "60"
+      MaxSearchResults: "100"
+    volumes:
+      # Mount host projects → /workspace (edit this path for your machine)
+      # WSL example: /home/you/projects  or  /mnt/c/Users/you/Projects
+      - ${MCP_WORKSPACE:-./workspace}:/workspace
+      # Optional: override full config
+      # - ./LocalCodingMcp/appsettings.json:/app/appsettings.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
