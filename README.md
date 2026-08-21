@@ -37,13 +37,13 @@ docker run --rm -d --name local-coding-mcp \
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
 ```
 
-MCP: `http://localhost:5000/mcp` · Health: `http://localhost:5000/health`
+MCP: `http://127.0.0.1:5000/mcp` · Health: `http://127.0.0.1:5000/health`
 
 ### Useful commands
 
 ```bash
 docker logs -f local-coding-mcp
-curl http://localhost:5000/health
+curl http://127.0.0.1:5000/health
 docker stop local-coding-mcp
 
 # Shell / git clone inside container
@@ -63,15 +63,6 @@ docker compose logs -f
 docker compose down
 ```
 
-### Tunnel (ChatGPT web)
-
-```bash
-ngrok http 5000
-# or: cloudflared tunnel --url http://localhost:5000
-```
-
-Connector URL: `https://<tunnel-host>/mcp`
-
 ### OpenWorkspace path
 
 Use the **container** path:
@@ -85,6 +76,109 @@ Use the **container** path:
 
 ---
 
+## Connect to ChatGPT (OpenAI Secure MCP Tunnel)
+
+**Preferred** path: keep LocalCodingMcp private on localhost and use OpenAI
+[`tunnel-client`](https://github.com/openai/tunnel-client) — **no public URL, no inbound ports**.
+
+```text
+ChatGPT / Codex
+      →  OpenAI-hosted tunnel endpoint
+      ←  outbound HTTPS (tunnel-client on your machine)
+      →  http://127.0.0.1:5000/mcp  (LocalCodingMcp)
+```
+
+### 1. Start LocalCodingMcp
+
+```bash
+docker run --rm -d --name local-coding-mcp \
+  -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v "$HOME/projects":/workspace \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+
+curl -fsS http://127.0.0.1:5000/health
+```
+
+### 2. Create tunnel + runtime key
+
+- Tunnels: https://platform.openai.com/settings/organization/tunnels  
+- Runtime API keys: https://platform.openai.com/settings/organization/api-keys  
+
+Save:
+- `CONTROL_PLANE_TUNNEL_ID` — e.g. `tunnel_` + 32 hex chars  
+- `CONTROL_PLANE_API_KEY` — runtime key (needs Tunnels **Read** + **Use**)
+
+### 3. Install tunnel-client
+
+```bash
+# Homebrew (macOS / Linux)
+brew install openai/tools/tunnel-client
+
+# or download from Platform Tunnels page / GitHub releases
+tunnel-client --version
+tunnel-client help quickstart
+```
+
+### 4. Point tunnel-client at LocalCodingMcp
+
+```bash
+export CONTROL_PLANE_API_KEY="sk-..."
+export CONTROL_PLANE_TUNNEL_ID="tunnel_..."
+
+tunnel-client init \
+  --sample sample_mcp_remote_no_auth \
+  --profile local-coding-mcp \
+  --tunnel-id "$CONTROL_PLANE_TUNNEL_ID" \
+  --mcp-server-url "http://127.0.0.1:5000/mcp"
+
+tunnel-client doctor --profile local-coding-mcp --explain
+tunnel-client run --profile local-coding-mcp
+```
+
+One-shot (no profile):
+
+```bash
+export CONTROL_PLANE_API_KEY="sk-..."
+export CONTROL_PLANE_TUNNEL_ID="tunnel_..."
+export MCP_SERVER_URL="http://127.0.0.1:5000/mcp"
+tunnel-client run
+```
+
+Check operator UI:
+
+```bash
+curl -fsS http://127.0.0.1:8080/healthz
+curl -fsS http://127.0.0.1:8080/readyz
+# http://127.0.0.1:8080/ui
+```
+
+### 5. ChatGPT connector
+
+1. ChatGPT → **Settings** → enable **Developer mode** (if needed)  
+2. **Connectors / Plugins** → create MCP app  
+3. **Connection → Tunnel** → select / paste your `tunnel_id`  
+4. Scan tools → start a new chat  
+5. Call `OpenWorkspace` with `{ "path": "/workspace/my-app" }`
+
+Official guides:
+
+- https://developers.openai.com/api/docs/guides/secure-mcp-tunnels  
+- https://github.com/openai/tunnel-client  
+
+### Fallback: public tunnel (ngrok / Cloudflare)
+
+Only if Secure MCP Tunnel is not available for your org:
+
+```bash
+ngrok http 5000
+# or: cloudflared tunnel --url http://localhost:5000
+```
+
+In ChatGPT use **Connection → URL**: `https://<public-host>/mcp`.
+
+---
+
 ## Quick guide (dotnet)
 
 ```bash
@@ -93,9 +187,9 @@ dotnet run --project LocalCodingMcp
 ```
 
 1. Configure `AllowedRoots` in `LocalCodingMcp/appsettings.json`.
-2. Run server → `http://localhost:5000/mcp`.
-3. Optional tunnel: `ngrok http 5000`.
-4. Connect MCP URL in ChatGPT Developer Mode / other client.
+2. Run server → `http://127.0.0.1:5000/mcp`.
+3. Prefer **OpenAI tunnel-client** (above); else ngrok.
+4. Connect in ChatGPT Developer Mode.
 5. Call **`OpenWorkspace` first** → use returned `workspace_id` for other tools.
 
 ### Typical flow

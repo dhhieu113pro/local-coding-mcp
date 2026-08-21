@@ -1,10 +1,19 @@
 # LocalCodingMcp — run from WSL / Docker Desktop
 #
 # Option A — pull public image (no build):
-#   docker compose pull && docker compose up
+#   docker compose pull && docker compose up -d
 #
 # Option B — build locally:
 #   docker compose up --build
+#
+# MCP endpoint for OpenAI tunnel-client (on the same host):
+#   http://127.0.0.1:5000/mcp
+#
+# Example:
+#   export CONTROL_PLANE_API_KEY=sk-...
+#   export CONTROL_PLANE_TUNNEL_ID=tunnel_...
+#   export MCP_SERVER_URL=http://127.0.0.1:5000/mcp
+#   tunnel-client run
 #
 # Mount your real project folders under /workspace (or change AllowedRoots).
 
