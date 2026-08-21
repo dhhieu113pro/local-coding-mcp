@@ -68,3 +68,69 @@ Full parameters, **example input/output JSON**, and safety model: **[LocalCoding
 - Blocks path traversal and symlink escapes
 - Blocks sensitive names (`.env`, keys, `*.pem`, …)
 - Shell commands run with timeout, cwd = workspace root
+
+---
+
+## Run with Docker (WSL / Docker Desktop)
+
+Works well from **WSL2** or Windows with Docker Desktop (WSL2 backend).
+
+### 1. Build & run
+
+```bash
+# From repo root (in WSL)
+docker compose up --build
+```
+
+MCP: `http://localhost:5000/mcp`  
+Health: `http://localhost:5000/health`
+
+### 2. Mount your real project folder
+
+By default compose mounts `./workspace` → `/workspace` inside the container.
+
+**WSL home projects:**
+
+```bash
+export MCP_WORKSPACE=/home/you/projects
+docker compose up --build
+```
+
+**Windows path via WSL:**
+
+```bash
+export MCP_WORKSPACE=/mnt/c/Users/you/Projects
+docker compose up --build
+```
+
+Or edit the volume in `docker-compose.yml`.
+
+### 3. Open workspace from the model
+
+Call `OpenWorkspace` with a path **inside the container**, e.g.:
+
+```json
+{ "path": "/workspace/my-app" }
+```
+
+(not the host path).
+
+### One-liner without compose
+
+```bash
+docker build -t local-coding-mcp .
+docker run --rm -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v /home/you/projects:/workspace \
+  local-coding-mcp
+```
+
+### Tunnel for ChatGPT web
+
+```bash
+# host side (WSL)
+ngrok http 5000
+# or: cloudflared tunnel --url http://localhost:5000
+```
+
+Then point ChatGPT Developer Mode connector to `https://<tunnel>/mcp`.
