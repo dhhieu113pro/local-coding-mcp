@@ -72,6 +72,84 @@ Full parameters, **example input/output JSON**, and safety model: **[LocalCoding
 
 ---
 
+## WSL commands (cheat sheet)
+
+Run these **inside WSL2** (Ubuntu recommended). Docker Desktop must use the **WSL2 backend**.
+
+### Pull & run (public image)
+
+```bash
+# Pull latest
+docker pull ghcr.io/dhhieu113pro/local-coding-mcp:latest
+
+# Run — mount WSL projects
+docker run --rm -d --name local-coding-mcp \
+  -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v "$HOME/projects":/workspace \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+
+# Or mount a Windows folder (C:\Users\...)
+docker run --rm -d --name local-coding-mcp \
+  -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v /mnt/c/Users/$USER/Projects:/workspace \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+```
+
+### Useful docker commands
+
+```bash
+# Logs
+docker logs -f local-coding-mcp
+
+# Health
+curl http://localhost:5000/health
+
+# Stop & remove
+docker stop local-coding-mcp
+
+# Shell inside container (debug / git clone)
+docker exec -it local-coding-mcp bash
+
+# Clone a repo into the mounted workspace
+docker exec -it local-coding-mcp \
+  git clone https://github.com/org/repo.git /workspace/repo
+```
+
+### Compose from WSL
+
+```bash
+# In repo root (or any folder with docker-compose.yml)
+export MCP_WORKSPACE="$HOME/projects"          # WSL path
+# export MCP_WORKSPACE="/mnt/c/Users/$USER/Projects"  # Windows path
+
+docker compose pull
+docker compose up -d
+
+docker compose logs -f
+docker compose down
+```
+
+### Tunnel for ChatGPT (from WSL)
+
+```bash
+ngrok http 5000
+# or: cloudflared tunnel --url http://localhost:5000
+```
+
+Then in ChatGPT → Developer Mode → connector URL: `https://<tunnel-host>/mcp`
+
+### OpenWorkspace path (important)
+
+Use the **container path**, not the host path:
+
+```json
+{ "path": "/workspace/my-app" }
+```
+
+---
+
 ## Run with Docker (WSL / Docker Desktop)
 
 Works well from **WSL2** or Windows with Docker Desktop (WSL2 backend).
