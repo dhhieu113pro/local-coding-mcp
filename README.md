@@ -17,23 +17,15 @@ It lets the model open a project folder (under **approved roots only**), list/re
 
 Run inside **WSL2** (Docker Desktop → WSL2 backend).
 
-### Pull & run
+### Pull & run (MCP only)
 
 ```bash
 docker pull ghcr.io/dhhieu113pro/local-coding-mcp:latest
 
-# Mount WSL projects folder
 docker run --rm -d --name local-coding-mcp \
   -p 5000:5000 \
   -e AllowedRoots__0=/workspace \
   -v "$HOME/projects":/workspace \
-  ghcr.io/dhhieu113pro/local-coding-mcp:latest
-
-# Or mount Windows path (C:\Users\...)
-docker run --rm -d --name local-coding-mcp \
-  -p 5000:5000 \
-  -e AllowedRoots__0=/workspace \
-  -v /mnt/c/Users/$USER/Projects:/workspace \
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
 ```
 
@@ -46,21 +38,9 @@ docker logs -f local-coding-mcp
 curl http://127.0.0.1:5000/health
 docker stop local-coding-mcp
 
-# Shell / git clone inside container
 docker exec -it local-coding-mcp bash
 docker exec -it local-coding-mcp \
   git clone https://github.com/org/repo.git /workspace/repo
-```
-
-### Compose
-
-```bash
-export MCP_WORKSPACE="$HOME/projects"
-# export MCP_WORKSPACE="/mnt/c/Users/$USER/Projects"
-
-docker compose pull && docker compose up -d
-docker compose logs -f
-docker compose down
 ```
 
 ### OpenWorkspace path
@@ -76,106 +56,81 @@ Use the **container** path:
 
 ---
 
-## Connect to ChatGPT (OpenAI Secure MCP Tunnel)
+## Connect to ChatGPT (tunnel-client **in container**)
 
-**Preferred** path: keep LocalCodingMcp private on localhost and use OpenAI
-[`tunnel-client`](https://github.com/openai/tunnel-client) — **no public URL, no inbound ports**.
+Preferred path: **no public URL**, no host install. Compose runs:
+
+1. `local-coding-mcp` — your MCP on port 5000  
+2. `tunnel-client` — official image `ghcr.io/openai/tunnel-client`, points at the MCP service
 
 ```text
 ChatGPT / Codex
       →  OpenAI-hosted tunnel endpoint
-      ←  outbound HTTPS (tunnel-client on your machine)
-      →  http://127.0.0.1:5000/mcp  (LocalCodingMcp)
+      ←  outbound HTTPS (tunnel-client container)
+      →  http://local-coding-mcp:5000/mcp
 ```
 
-### 1. Start LocalCodingMcp
-
-```bash
-docker run --rm -d --name local-coding-mcp \
-  -p 5000:5000 \
-  -e AllowedRoots__0=/workspace \
-  -v "$HOME/projects":/workspace \
-  ghcr.io/dhhieu113pro/local-coding-mcp:latest
-
-curl -fsS http://127.0.0.1:5000/health
-```
-
-### 2. Create tunnel + runtime key
+### 1. Create tunnel + runtime key (OpenAI Platform)
 
 - Tunnels: https://platform.openai.com/settings/organization/tunnels  
 - Runtime API keys: https://platform.openai.com/settings/organization/api-keys  
 
-Save:
+You need:
 - `CONTROL_PLANE_TUNNEL_ID` — e.g. `tunnel_` + 32 hex chars  
-- `CONTROL_PLANE_API_KEY` — runtime key (needs Tunnels **Read** + **Use**)
+- `CONTROL_PLANE_API_KEY` — runtime key (Tunnels **Read** + **Use**)
 
-### 3. Install tunnel-client
-
-```bash
-# Homebrew (macOS / Linux)
-brew install openai/tools/tunnel-client
-
-# or download from Platform Tunnels page / GitHub releases
-tunnel-client --version
-tunnel-client help quickstart
-```
-
-### 4. Point tunnel-client at LocalCodingMcp
+### 2. Start stack (WSL)
 
 ```bash
 export CONTROL_PLANE_API_KEY="sk-..."
 export CONTROL_PLANE_TUNNEL_ID="tunnel_..."
+export MCP_WORKSPACE="$HOME/projects"
+# export MCP_WORKSPACE="/mnt/c/Users/$USER/Projects"
 
-tunnel-client init \
-  --sample sample_mcp_remote_no_auth \
-  --profile local-coding-mcp \
-  --tunnel-id "$CONTROL_PLANE_TUNNEL_ID" \
-  --mcp-server-url "http://127.0.0.1:5000/mcp"
+docker compose pull
+docker compose up -d
 
-tunnel-client doctor --profile local-coding-mcp --explain
-tunnel-client run --profile local-coding-mcp
-```
+# MCP health
+curl -fsS http://127.0.0.1:5000/health
 
-One-shot (no profile):
-
-```bash
-export CONTROL_PLANE_API_KEY="sk-..."
-export CONTROL_PLANE_TUNNEL_ID="tunnel_..."
-export MCP_SERVER_URL="http://127.0.0.1:5000/mcp"
-tunnel-client run
-```
-
-Check operator UI:
-
-```bash
+# tunnel-client operator UI
 curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS http://127.0.0.1:8080/readyz
-# http://127.0.0.1:8080/ui
+# open http://127.0.0.1:8080/ui
 ```
 
-### 5. ChatGPT connector
-
-1. ChatGPT → **Settings** → enable **Developer mode** (if needed)  
-2. **Connectors / Plugins** → create MCP app  
-3. **Connection → Tunnel** → select / paste your `tunnel_id`  
-4. Scan tools → start a new chat  
-5. Call `OpenWorkspace` with `{ "path": "/workspace/my-app" }`
-
-Official guides:
-
-- https://developers.openai.com/api/docs/guides/secure-mcp-tunnels  
-- https://github.com/openai/tunnel-client  
-
-### Fallback: public tunnel (ngrok / Cloudflare)
-
-Only if Secure MCP Tunnel is not available for your org:
+Logs:
 
 ```bash
-ngrok http 5000
-# or: cloudflared tunnel --url http://localhost:5000
+docker compose logs -f local-coding-mcp
+docker compose logs -f tunnel-client
+docker compose down
 ```
 
-In ChatGPT use **Connection → URL**: `https://<public-host>/mcp`.
+### 3. ChatGPT connector
+
+1. ChatGPT → **Settings** → **Developer mode** (if needed)  
+2. **Connectors / Plugins** → create MCP app  
+3. **Connection → Tunnel** → select / paste your `tunnel_id`  
+4. Scan tools → new chat  
+5. `OpenWorkspace` with `{ "path": "/workspace/my-app" }`
+
+Guides: [Secure MCP Tunnels](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) · [tunnel-client](https://github.com/openai/tunnel-client)
+
+### Fallback: public tunnel (ngrok)
+
+Only if Secure MCP Tunnel is unavailable:
+
+```bash
+# MCP only
+docker run --rm -d --name local-coding-mcp -p 5000:5000 \
+  -e AllowedRoots__0=/workspace -v "$HOME/projects":/workspace \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+
+ngrok http 5000
+```
+
+ChatGPT → **Connection → URL**: `https://<public-host>/mcp`
 
 ---
 
@@ -188,9 +143,9 @@ dotnet run --project LocalCodingMcp
 
 1. Configure `AllowedRoots` in `LocalCodingMcp/appsettings.json`.
 2. Run server → `http://127.0.0.1:5000/mcp`.
-3. Prefer **OpenAI tunnel-client** (above); else ngrok.
-4. Connect in ChatGPT Developer Mode.
-5. Call **`OpenWorkspace` first** → use returned `workspace_id` for other tools.
+3. Prefer **compose + tunnel-client container** (above); else ngrok.
+4. Connect in ChatGPT.
+5. Call **`OpenWorkspace` first** → use `workspace_id` for other tools.
 
 ### Typical flow
 
