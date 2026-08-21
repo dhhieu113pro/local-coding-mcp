@@ -28,6 +28,10 @@ public class CommandRunnerExtraTests
     [Fact]
     public async Task RunAsync_WithExplicitUnixFlag()
     {
+        // Skip on Windows — /bin/bash is not available
+        if (OperatingSystem.IsWindows())
+            return;
+
         var runner = new CommandRunner(timeoutSeconds: 10, isWindows: false);
         var root = TestHelpers.CreateTempRoot();
         try
