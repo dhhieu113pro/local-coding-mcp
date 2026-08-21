@@ -2,175 +2,262 @@
 
 Secure local coding **MCP server** (C# / .NET 10) for **ChatGPT**, **Grok**, and other MCP clients.
 
-It lets the model open a project folder (under **approved roots only**), list/read/write/patch files, search code, run shell commands, and inspect git — all **path-sandboxed**.
+Open a project folder (under approved roots only), list/read/write/patch files, search code, run shell commands, and inspect git — all path-sandboxed.
 
 | | |
 |---|---|
-| **Full docs & tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
-| **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) — Linux · macOS · Windows |
-| **Docker** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
+| **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
+| **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
+| **Docker image** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
 | **License** | [MIT](LICENSE) |
 
 ---
 
-## WSL / Docker commands
+## Quick start (step by step)
 
-Run inside **WSL2** (Docker Desktop → WSL2 backend).
+Follow these steps in order.
 
-### Pull & run (MCP only)
+### Step 0 — What you need
+
+| Item | Required? | Where to get it |
+|------|-----------|-----------------|
+| Docker Desktop (WSL2 backend) | Yes | https://www.docker.com/products/docker-desktop |
+| OpenAI **tunnel id** | Yes (for ChatGPT tunnel) | https://platform.openai.com/settings/organization/tunnels |
+| OpenAI **runtime API key** | Yes (for ChatGPT tunnel) | https://platform.openai.com/settings/organization/api-keys |
+| Folder for your code | Yes | e.g. `D:\wslc\workspaces` or `~/projects` |
+| GitHub token (PAT) | Only for **private** repos | https://github.com/settings/tokens |
+
+---
+
+### Step 1 — Create OpenAI tunnel + API key
+
+1. Open **Tunnels**: https://platform.openai.com/settings/organization/tunnels  
+   - Create a tunnel (or pick an existing one).  
+   - Copy the **tunnel id** (looks like `tunnel_` + 32 hex characters).
+
+2. Open **API keys**: https://platform.openai.com/settings/organization/api-keys  
+   - Create a **runtime** key.  
+   - The key needs permission: Tunnels **Read** + **Use**.  
+   - Copy the key (starts with `sk-...`).
+
+Keep both values private. You will put them in a `.env` file next.
+
+---
+
+### Step 2 — Create `.env` file
+
+In the repo folder (or any folder where you run `docker compose`):
 
 ```bash
-docker pull ghcr.io/dhhieu113pro/local-coding-mcp:latest
-
-docker run --rm -d --name local-coding-mcp \
-  -p 5000:5000 \
-  -e AllowedRoots__0=/workspace \
-  -v "$HOME/projects":/workspace \
-  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+cp .env.example .env
 ```
 
-MCP: `http://127.0.0.1:5000/mcp` · Health: `http://127.0.0.1:5000/health`
+Edit `.env`:
 
-### Useful commands
+```env
+# Required for ChatGPT tunnel
+CONTROL_PLANE_TUNNEL_ID=tunnel_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+CONTROL_PLANE_API_KEY=sk-proj-xxxxxxxx
+
+# Your code folder on the host (use forward slashes on Windows)
+# Windows example:
+MCP_WORKSPACE=D:/wslc/workspaces
+# WSL example:
+# MCP_WORKSPACE=/home/you/projects
+
+# Optional: browser VS Code password
+CODE_SERVER_PASSWORD=changeme
+
+# Optional: only needed to git clone private GitHub repos
+# GITHUB_TOKEN=ghp_xxxxxxxx
+```
+
+**Windows path rule:** write `D:/wslc/workspaces` (forward slashes), not `D:\wslc\workspaces`.
+
+Do **not** commit `.env`.
+
+---
+
+### Step 3 — Start the containers
+
+From the folder that has `docker-compose.yml` and `.env`:
 
 ```bash
-docker logs -f local-coding-mcp
+docker compose pull
+docker compose up -d
+```
+
+This starts:
+
+| Container | Port | Role |
+|-----------|------|------|
+| `local-coding-mcp` | **5000** | MCP server |
+| `local-coding-mcp-tunnel` | **8080** | OpenAI tunnel-client |
+
+Check health:
+
+```bash
 curl http://127.0.0.1:5000/health
-docker stop local-coding-mcp
-
-docker exec -it local-coding-mcp bash
-docker exec -it local-coding-mcp \
-  git clone https://github.com/org/repo.git /workspace/repo
+curl http://127.0.0.1:8080/readyz
 ```
 
-### OpenWorkspace path
+Optional operator UI: http://127.0.0.1:8080/ui
 
-Use the **container** path:
+Logs if something fails:
+
+```bash
+docker compose logs -f local-coding-mcp
+docker compose logs -f tunnel-client
+```
+
+Stop everything:
+
+```bash
+docker compose down
+```
+
+---
+
+### Step 4 — Connect ChatGPT
+
+1. ChatGPT → **Settings** → turn on **Developer mode** (if needed).
+2. **Connectors / Plugins** → create / add an MCP app.
+3. **Connection** → choose **Tunnel**.
+4. Paste the same `CONTROL_PLANE_TUNNEL_ID` from your `.env`.
+5. Scan tools → open a **new chat**.
+
+In the chat, first call:
 
 ```json
 { "path": "/workspace/my-app" }
 ```
 
-> **Owner once:** set package visibility to Public →  
-> https://github.com/users/dhhieu113pro/packages/container/local-coding-mcp/settings
+Use the **container** path (`/workspace/...`), not `D:\...` or `C:\...`.
 
 ---
 
-## Connect to ChatGPT (tunnel-client **in container**)
+### Step 5 — (Optional) GitHub token for private repos
 
-Preferred path: **no public URL**, no host install. Compose runs:
+Public `git clone` needs **no** token.
 
-1. `local-coding-mcp` — MCP on port 5000  
-2. `tunnel-client` — `ghcr.io/openai/tunnel-client` → MCP service  
-3. *(optional)* `code-server` — browser VS Code on the same workspace
+For **private** repos, create a fine-scoped PAT: https://github.com/settings/tokens  
+(Contents: Read is enough for clone.)
+
+**Clone inside the MCP container:**
+
+```bash
+# replace TOKEN and the repo URL
+docker exec -it local-coding-mcp \
+  git clone https://TOKEN@github.com/org/private-repo.git /workspace/private-repo
+```
+
+Or set in `.env`:
+
+```env
+GITHUB_TOKEN=ghp_xxxxxxxx
+```
+
+Then:
+
+```bash
+docker exec -it local-coding-mcp bash -c \
+  'git clone https://$GITHUB_TOKEN@github.com/org/private-repo.git /workspace/private-repo'
+```
+
+(Only works if you also pass `GITHUB_TOKEN` into the MCP service environment — by default compose does not inject it; the one-line `TOKEN@github.com` form is simplest.)
+
+---
+
+### Step 6 — (Optional) Browser IDE (code-server)
+
+Not started by default.
+
+```bash
+# ensure CODE_SERVER_PASSWORD is set in .env
+docker compose --profile ide up -d
+```
+
+Open: **http://127.0.0.1:8443**  
+Password = value of `CODE_SERVER_PASSWORD`  
+Files = same folder as MCP `/workspace`
+
+---
+
+## Run MCP only (no tunnel)
+
+If you only want the local MCP (e.g. test with ngrok later):
+
+**Windows PowerShell:**
+
+```powershell
+docker run --rm -d --name local-coding-mcp `
+  -p 5000:5000 `
+  -e AllowedRoots__0=/workspace `
+  -v "D:/wslc/workspaces:/workspace" `
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+```
+
+**WSL / Linux / macOS:**
+
+```bash
+docker run --rm -d --name local-coding-mcp \
+  -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v "$HOME/projects:/workspace" \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+```
+
+Health: `curl http://127.0.0.1:5000/health`
+
+**Volume tip (Windows):** always use one string with forward slashes:
 
 ```text
-ChatGPT / Codex
-      →  OpenAI-hosted tunnel endpoint
-      ←  outbound HTTPS (tunnel-client container)
-      →  http://local-coding-mcp:5000/mcp
+-v "D:/wslc/workspaces:/workspace"
 ```
 
-### 1. Create tunnel + runtime key (OpenAI Platform)
+Wrong (breaks on `D:`):
 
-- Tunnels: https://platform.openai.com/settings/organization/tunnels  
-- Runtime API keys: https://platform.openai.com/settings/organization/api-keys  
-
-You need:
-- `CONTROL_PLANE_TUNNEL_ID` — e.g. `tunnel_` + 32 hex chars  
-- `CONTROL_PLANE_API_KEY` — runtime key (Tunnels **Read** + **Use**)
-
-### 2. Start stack (WSL)
-
-```bash
-export CONTROL_PLANE_API_KEY="sk-..."
-export CONTROL_PLANE_TUNNEL_ID="tunnel_..."
-export MCP_WORKSPACE="$HOME/projects"
-# export MCP_WORKSPACE="/mnt/c/Users/$USER/Projects"
-
-docker compose pull
-docker compose up -d
-
-curl -fsS http://127.0.0.1:5000/health   # MCP
-curl -fsS http://127.0.0.1:8080/readyz   # tunnel-client
-# http://127.0.0.1:8080/ui
+```text
+-v "D:\wslc\workspaces":/workspace
 ```
 
-Logs:
+---
 
-```bash
-docker compose logs -f local-coding-mcp
-docker compose logs -f tunnel-client
-docker compose down
-```
+## Fallback: public URL (ngrok)
 
-### 3. ChatGPT connector
-
-1. ChatGPT → **Settings** → **Developer mode** (if needed)  
-2. **Connectors / Plugins** → create MCP app  
-3. **Connection → Tunnel** → select / paste your `tunnel_id`  
-4. Scan tools → new chat  
-5. `OpenWorkspace` with `{ "path": "/workspace/my-app" }`
-
-Guides: [Secure MCP Tunnels](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) · [tunnel-client](https://github.com/openai/tunnel-client)
-
-### Fallback: public tunnel (ngrok)
+Only if Secure MCP Tunnel is not available on your OpenAI org:
 
 ```bash
 docker run --rm -d --name local-coding-mcp -p 5000:5000 \
-  -e AllowedRoots__0=/workspace -v "$HOME/projects":/workspace \
+  -e AllowedRoots__0=/workspace \
+  -v "D:/wslc/workspaces:/workspace" \
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
 
 ngrok http 5000
 ```
 
-ChatGPT → **Connection → URL**: `https://<public-host>/mcp`
+ChatGPT → Connection → **URL** → `https://<ngrok-host>/mcp`
 
 ---
 
-## Optional: code-server (browser IDE)
+## Secrets cheat sheet
 
-Edit the same mounted projects in the browser (VS Code). **Not started by default.**
+| Secret | Env var | Used by | Required |
+|--------|---------|---------|----------|
+| OpenAI runtime key | `CONTROL_PLANE_API_KEY` | tunnel-client container | Yes for tunnel |
+| OpenAI tunnel id | `CONTROL_PLANE_TUNNEL_ID` | tunnel-client + ChatGPT connector | Yes for tunnel |
+| Host code folder | `MCP_WORKSPACE` | compose volume mount | Yes |
+| code-server password | `CODE_SERVER_PASSWORD` | code-server (profile `ide`) | Only if using IDE |
+| GitHub PAT | (manual in clone URL) | `git clone` private repos | Only if private clone |
 
-```bash
-export MCP_WORKSPACE="$HOME/projects"
-export CODE_SERVER_PASSWORD="your-strong-password"
-
-# MCP + tunnel + IDE
-docker compose --profile ide up -d
-
-# Or IDE only (if MCP already running)
-docker compose --profile ide up -d code-server
-```
-
-Open: **http://127.0.0.1:8443** — password = `CODE_SERVER_PASSWORD` (default `changeme`).
-
-Workspace root inside the IDE: `/home/coder/project` (same host folder as MCP `/workspace`).
-
-Stop IDE only:
-
-```bash
-docker compose --profile ide stop code-server
-```
+Put long-lived values in `.env` next to `docker-compose.yml`.  
+Never commit `.env`. Never paste keys into ChatGPT prompts.
 
 ---
 
-## Quick guide (dotnet)
+## Typical tool flow
 
-```bash
-dotnet test LocalCodingMcp.sln -c Release
-dotnet run --project LocalCodingMcp
-```
-
-1. Configure `AllowedRoots` in `LocalCodingMcp/appsettings.json`.
-2. Run server → `http://127.0.0.1:5000/mcp`.
-3. Prefer **compose + tunnel-client container** (above); else ngrok.
-4. Connect in ChatGPT.
-5. Call **`OpenWorkspace` first** → use `workspace_id` for other tools.
-
-### Typical flow
-
-```
+```text
 OpenWorkspace(path)  →  workspace_id
 ListDirectory / ReadFile / SearchFiles
 WriteFile or ApplyPatch
@@ -178,39 +265,49 @@ RunCommand (e.g. tests)
 GitStatus / GitDiff / GitLog
 ```
 
+Full tool params + examples: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
+
 ---
 
 ## Tool list (summary)
 
 | Tool | What it does |
 |------|----------------|
-| **OpenWorkspace** | Open a project folder under allowed roots → returns `workspace_id` |
-| **ListWorkspaces** | List currently open workspaces |
-| **GetAllowedRoots** | Show configured allowed root directories |
-| **ListDirectory** | List files/dirs relative to workspace |
-| **ReadFile** | Read a text file (optional line range) |
-| **WriteFile** | Create or overwrite a UTF-8 text file |
-| **ApplyPatch** | Apply a unified-diff patch (preferred for edits) |
-| **SearchFiles** | Regex/text search across files (skips binaries & sensitive names) |
-| **CreateDirectory** | Create directory (and parents) |
-| **MoveFile** | Move or rename file/directory |
-| **DeleteFile** | Delete a file or empty directory |
-| **GitStatus** | `git status` in the workspace |
-| **GitDiff** | Unstaged or staged diff |
-| **GitLog** | Recent commits (`git log --oneline`) |
-| **RunCommand** | Run a shell command inside the workspace (with timeout) |
-
-Full parameters + **example input/output**: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**.
+| **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
+| **ListWorkspaces** | List open workspaces |
+| **GetAllowedRoots** | Show allowed roots |
+| **ListDirectory** | List files/dirs |
+| **ReadFile** | Read text file (optional line range) |
+| **WriteFile** | Create/overwrite text file |
+| **ApplyPatch** | Apply unified diff |
+| **SearchFiles** | Regex/text search |
+| **CreateDirectory** | Create directory |
+| **MoveFile** | Move/rename |
+| **DeleteFile** | Delete file or empty dir |
+| **GitStatus** | `git status` |
+| **GitDiff** | Unstaged/staged diff |
+| **GitLog** | Recent commits |
+| **RunCommand** | Shell command in workspace (timeout) |
 
 ---
 
-## Safety (short)
+## Safety
 
-- Paths only under **AllowedRoots**
-- Blocks path traversal and symlink escapes
-- Blocks sensitive names (`.env`, keys, `*.pem`, …)
-- Shell commands run with timeout, cwd = workspace root
-- code-server is optional and password-gated; do not expose port 8443 publicly without TLS/VPN
+- Paths only under **AllowedRoots** (`/workspace` in Docker)
+- Blocks `../`, symlink escape, sensitive names (`.env`, keys, `*.pem`, …)
+- Shell has timeout; cwd = workspace root
+- Do not expose ports 5000 / 8080 / 8443 to the public internet without protection
+
+---
+
+## Dev (dotnet, no Docker)
+
+```bash
+dotnet test LocalCodingMcp.sln -c Release
+dotnet run --project LocalCodingMcp
+```
+
+Edit `LocalCodingMcp/appsettings.json` → `AllowedRoots`.
 
 ---
 
@@ -220,6 +317,6 @@ Full parameters + **example input/output**: **[LocalCodingMcp/README.md](LocalCo
 docker build -t local-coding-mcp .
 docker run --rm -p 5000:5000 \
   -e AllowedRoots__0=/workspace \
-  -v "$HOME/projects":/workspace \
+  -v "D:/wslc/workspaces:/workspace" \
   local-coding-mcp
 ```
