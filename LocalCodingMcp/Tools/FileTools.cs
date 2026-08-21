@@ -15,6 +15,9 @@ public sealed class FileTools
     private readonly SensitiveFileFilter _filter;
     private readonly int _maxSearchResults;
 
+    /// <summary>Max decoded size for WriteBinaryFile (10 MiB).</summary>
+    private const int MaxBinaryBytes = 10 * 1024 * 1024;
+
     public FileTools(
         WorkspaceManager workspaces,
         PathSandbox sandbox,
@@ -103,6 +106,69 @@ public sealed class FileTools
         return $"Wrote {path} ({(content ?? "").Length} chars)";
     }
 
+    [McpServerTool, Description("Write a binary file (PNG/JPG/etc.) from base64. Strips optional data-URL prefix. Max 10 MiB decoded.")]
+    public string WriteBinaryFile(
+        [Description("Relative path from workspace root, e.g. images/photo.png")] string path,
+        [Description("Base64 payload, or data:image/png;base64,...")] string base64_content,
+        [Description("Workspace id")] string workspace_id)
+    {
+        var root = _workspaces.GetRoot(workspace_id);
+        var full = _sandbox.Resolve(root, path);
+        _filter.EnsureNotBlocked(full);
+
+        if (string.IsNullOrWhiteSpace(base64_content))
+            throw new ArgumentException("base64_content is empty");
+
+        var payload = base64_content.Trim();
+        var comma = payload.IndexOf(',');
+        if (payload.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && comma >= 0)
+            payload = payload[(comma + 1)..];
+
+        payload = payload.Replace("\r", "").Replace("\n", "").Replace(" ", "");
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(payload);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException("Invalid base64 content", ex);
+        }
+
+        if (bytes.Length == 0)
+            throw new ArgumentException("Decoded content is empty");
+        if (bytes.Length > MaxBinaryBytes)
+            throw new ArgumentException($"Decoded size {bytes.Length} exceeds max {MaxBinaryBytes} bytes");
+
+        var dir = Path.GetDirectoryName(full);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        File.WriteAllBytes(full, bytes);
+        return $"Wrote binary {path} ({bytes.Length} bytes)";
+    }
+
+    [McpServerTool, Description("Read a binary file as base64 (images, etc.). Max 10 MiB.")]
+    public string ReadBinaryFile(
+        [Description("Relative path from workspace root")] string path,
+        [Description("Workspace id")] string workspace_id)
+    {
+        var root = _workspaces.GetRoot(workspace_id);
+        var full = _sandbox.Resolve(root, path);
+        _filter.EnsureNotBlocked(full);
+
+        if (!File.Exists(full))
+            throw new FileNotFoundException($"File not found: {path}");
+
+        var info = new FileInfo(full);
+        if (info.Length > MaxBinaryBytes)
+            throw new InvalidOperationException($"File size {info.Length} exceeds max {MaxBinaryBytes} bytes");
+
+        var bytes = File.ReadAllBytes(full);
+        return Convert.ToBase64String(bytes);
+    }
+
     [McpServerTool, Description("Apply a unified diff patch to an existing file")]
     public string ApplyPatch(
         [Description("Relative path from workspace root")] string path,
@@ -157,7 +223,6 @@ public sealed class FileTools
                 continue;
             }
 
-            // Skip likely binary
             if (IsProbablyBinary(file)) continue;
 
             var text = TryReadAllText(file);
@@ -241,7 +306,6 @@ public sealed class FileTools
 
         throw new FileNotFoundException($"Path not found: {path}");
     }
-
 
     internal static string? TryReadAllText(string path)
     {
