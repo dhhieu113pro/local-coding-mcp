@@ -8,6 +8,7 @@ It lets the model open a project folder (under **approved roots only**), list/re
 |---|---|
 | **Full docs & tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) — Linux · macOS · Windows |
+| **Docker** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
 | **License** | [MIT](LICENSE) |
 
 ```bash
@@ -74,6 +75,29 @@ Full parameters, **example input/output JSON**, and safety model: **[LocalCoding
 ## Run with Docker (WSL / Docker Desktop)
 
 Works well from **WSL2** or Windows with Docker Desktop (WSL2 backend).
+
+### 0. Public image (no build)
+
+CI publishes to **GitHub Container Registry** on every push to `main`:
+
+```bash
+docker pull ghcr.io/dhhieu113pro/local-coding-mcp:latest
+
+docker run --rm -p 5000:5000 \
+  -e AllowedRoots__0=/workspace \
+  -v /home/you/projects:/workspace \
+  ghcr.io/dhhieu113pro/local-coding-mcp:latest
+```
+
+Or compose (pulls public image by default):
+
+```bash
+export MCP_WORKSPACE=/home/you/projects
+docker compose pull && docker compose up
+```
+
+> **One-time (owner):** after the first successful publish, open the package settings and set **Visibility → Public**:  
+> https://github.com/users/dhhieu113pro/packages/container/local-coding-mcp/settings
 
 ### 1. Build & run
 
