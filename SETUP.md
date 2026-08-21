@@ -13,7 +13,7 @@ Recommended path: **Docker Compose** (MCP + OpenAI tunnel-client on shared netwo
 | Docker Desktop (WSL2 backend on Windows) | Yes | https://www.docker.com/products/docker-desktop |
 | OpenAI **tunnel id** | Yes (ChatGPT tunnel) | https://platform.openai.com/settings/organization/tunnels |
 | OpenAI **runtime API key** | Yes (ChatGPT tunnel) | https://platform.openai.com/settings/organization/api-keys |
-| Code folder on disk | Yes | e.g. `D:\wslc\workspaces` or `~/projects` |
+| Code folder on disk | Yes | e.g. `D:\\wslc\\workspaces` or `~/projects` |
 | GitHub PAT | Only private repos | https://github.com/settings/tokens |
 
 ---
@@ -68,7 +68,7 @@ CODE_SERVER_PASSWORD=changeme
 
 **Where is `.env`?** Same folder as `docker-compose.yml` (repo root).
 
-**Windows volume rule:** `D:/wslc/workspaces` not `D:\wslc\workspaces`.
+**Windows volume rule:** `D:/wslc/workspaces` not `D:\\wslc\\workspaces`.
 
 ---
 
@@ -95,7 +95,8 @@ curl http://127.0.0.1:5000/health
 curl http://127.0.0.1:8080/readyz
 ```
 
-Tunnel UI: http://127.0.0.1:8080/ui
+Tunnel UI: http://127.0.0.1:8080/ui  
+(`ALLOW_REMOTE_UI=true` is set in compose so the UI works via published port.)
 
 ### Logs / stop
 
@@ -122,7 +123,7 @@ First tool call — use **container** path:
 { "path": "/workspace/my-app" }
 ```
 
-Not `D:\...` or `C:\...`.
+Not `D:\\...` or `C:\\...`.
 
 ---
 
@@ -150,9 +151,51 @@ Same files as MCP `/workspace`.
 
 ---
 
-## Alternative: manual `wslc` / `docker run` (no Compose)
+## 7. Optional: Termux test environment
 
-Use when you prefer one-off containers. Same idea as Option B (shared network).
+Use a Termux-like shell in Docker to experiment (e.g. scripts you plan to run on Android Termux). **Not started by default.**
+
+### Interactive shell (recommended for testing)
+
+```powershell
+docker compose --profile termux run --rm termux
+```
+
+Or one-liner without compose:
+
+```powershell
+docker run -it --rm `
+  --network mcp-net `
+  -v "D:/wslc/workspaces:/workspace" `
+  -w /workspace `
+  termux/termux-docker:latest
+```
+
+### Detached, then attach
+
+```powershell
+docker compose --profile termux up -d termux
+docker exec -it local-coding-mcp-termux bash
+# or: docker attach local-coding-mcp-termux
+```
+
+Inside Termux container:
+
+- Your projects are at **`/workspace`** (same mount as MCP).
+- On network **`mcp-net`** you can hit MCP at `http://local-coding-mcp:5000/health`.
+
+Example:
+
+```bash
+curl http://local-coding-mcp:5000/health
+ls /workspace
+```
+
+**Note:** `termux/termux-docker` is a **test shell**, not a full Android device. Real Termux on phone still needs its own install; use this profile to try commands in a similar environment.
+
+---
+
+## Alternative: manual `wslc` / `docker run` (no Compose)
 
 ### Create network
 
@@ -171,7 +214,7 @@ wslc run --rm -d --name local-coding-mcp `
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
 ```
 
-### Tunnel (secrets on this command only)
+### Tunnel
 
 ```powershell
 wslc run --rm -d --name local-coding-mcp-tunnel `
@@ -181,16 +224,27 @@ wslc run --rm -d --name local-coding-mcp-tunnel `
   -e CONTROL_PLANE_TUNNEL_ID="tunnel_..." `
   -e MCP_SERVER_URL="http://local-coding-mcp:5000/mcp" `
   -e HEALTH_LISTEN_ADDR=":8080" `
+  -e ALLOW_REMOTE_UI="true" `
   ghcr.io/openai/tunnel-client:latest
 ```
 
-**Do not** use `http://127.0.0.1:5000/mcp` or `host.docker.internal` unless you know DNS works. Prefer `http://local-coding-mcp:5000/mcp` on `mcp-net`.
+Prefer `http://local-coding-mcp:5000/mcp` on `mcp-net` (not `127.0.0.1` / `host.docker.internal`).
+
+### Termux test (manual)
+
+```powershell
+wslc run -it --rm --name termux-test `
+  --network mcp-net `
+  -v "D:/wslc/workspaces:/workspace" `
+  -w /workspace `
+  termux/termux-docker:latest
+```
 
 ### Volume format on Windows
 
 | Good | Bad |
 |------|-----|
-| `-v "D:/wslc/workspaces:/workspace"` | `-v "D:\wslc\workspaces":/workspace` |
+| `-v "D:/wslc/workspaces:/workspace"` | `-v "D:\\wslc\\workspaces":/workspace` |
 | `-v "/mnt/d/wslc/workspaces:/workspace"` | Missing `:/workspace` |
 
 ---
@@ -205,13 +259,7 @@ docker run --rm -d --name local-coding-mcp `
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
 ```
 
-Then optional public tunnel:
-
-```powershell
-ngrok http 5000
-```
-
-ChatGPT → Connection → **URL** → `https://<ngrok-host>/mcp`
+Optional public tunnel: `ngrok http 5000` → ChatGPT Connection **URL**.
 
 ---
 
@@ -225,8 +273,6 @@ ChatGPT → Connection → **URL** → `https://<ngrok-host>/mcp`
 | IDE password | `CODE_SERVER_PASSWORD` | code-server (profile `ide`) |
 | GitHub PAT | in `git clone` URL | MCP container exec |
 
-MCP container does **not** need the OpenAI API key.
-
 ---
 
 ## Troubleshooting
@@ -235,9 +281,10 @@ MCP container does **not** need the OpenAI API key.
 |---------|-----|
 | `Invalid volume specifications` / `D:` | Use `D:/path:/workspace` as **one** quoted string |
 | `lookup host.docker.internal: no such host` | Use compose or `--network mcp-net` + `http://local-coding-mcp:5000/mcp` |
+| `admin UI is restricted to loopback` | Set `ALLOW_REMOTE_UI=true` on tunnel-client |
 | `oauth discovery failed` / connection refused | MCP not running or wrong `MCP_SERVER_URL` |
-| Tunnel `readyz` fails | Check `CONTROL_PLANE_*` values; `docker compose logs tunnel-client` |
-| ChatGPT cannot see tools | Tunnel id mismatch; tunnel container not running; new chat after connect |
+| Tunnel `readyz` fails | Check `CONTROL_PLANE_*`; `docker compose logs tunnel-client` |
+| ChatGPT cannot see tools | Tunnel id mismatch; tunnel not running; new chat after connect |
 
 ---
 
@@ -246,4 +293,5 @@ MCP container does **not** need the OpenAI API key.
 - [README.md](README.md) — overview & tools  
 - [LocalCodingMcp/README.md](LocalCodingMcp/README.md) — full tool reference  
 - [OpenAI Secure MCP Tunnels](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)  
-- [openai/tunnel-client](https://github.com/openai/tunnel-client)
+- [openai/tunnel-client](https://github.com/openai/tunnel-client)  
+- [termux/termux-docker](https://hub.docker.com/r/termux/termux-docker)

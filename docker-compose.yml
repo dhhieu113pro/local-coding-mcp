@@ -4,6 +4,10 @@
 #   1. Copy .env.example → .env and fill secrets
 #   2. docker compose up -d
 #
+# Optional profiles:
+#   docker compose --profile ide up -d      # code-server
+#   docker compose --profile termux run termux   # interactive Termux shell
+#
 # Windows MCP_WORKSPACE example: D:/wslc/workspaces
 # WSL example:                   /home/you/projects
 
@@ -20,7 +24,6 @@ services:
       CommandTimeoutSeconds: "60"
       MaxSearchResults: "100"
     volumes:
-      # Host folder → /workspace inside container
       - ${MCP_WORKSPACE:-./workspace}:/workspace
     networks:
       - mcp-net
@@ -43,16 +46,17 @@ services:
     environment:
       CONTROL_PLANE_API_KEY: ${CONTROL_PLANE_API_KEY}
       CONTROL_PLANE_TUNNEL_ID: ${CONTROL_PLANE_TUNNEL_ID}
-      # Same compose network → use service name (not localhost / host.docker.internal)
       MCP_SERVER_URL: http://local-coding-mcp:5000/mcp
       LOG_LEVEL: info
       LOG_FORMAT: json
       HEALTH_LISTEN_ADDR: ":8080"
+      # Needed so http://127.0.0.1:8080/ui works via published port
+      ALLOW_REMOTE_UI: "true"
     networks:
       - mcp-net
     restart: unless-stopped
 
-  # Optional browser IDE — only with: docker compose --profile ide up -d
+  # Optional browser IDE
   code-server:
     profiles: ["ide"]
     image: codercom/code-server:latest
@@ -72,6 +76,27 @@ services:
     networks:
       - mcp-net
     restart: unless-stopped
+
+  # Optional Termux test environment (Android-like shell for experiments)
+  # Interactive:
+  #   docker compose --profile termux run --rm termux
+  # Detached (then attach):
+  #   docker compose --profile termux up -d termux
+  #   docker attach local-coding-mcp-termux
+  termux:
+    profiles: ["termux"]
+    image: termux/termux-docker:latest
+    container_name: local-coding-mcp-termux
+    stdin_open: true
+    tty: true
+    volumes:
+      # Same host projects visible inside Termux
+      - ${MCP_WORKSPACE:-./workspace}:/workspace
+    working_dir: /workspace
+    networks:
+      - mcp-net
+    # Keep container alive when started with up -d
+    command: ["sleep", "infinity"]
 
 networks:
   mcp-net:
