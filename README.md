@@ -60,8 +60,9 @@ Use the **container** path:
 
 Preferred path: **no public URL**, no host install. Compose runs:
 
-1. `local-coding-mcp` — your MCP on port 5000  
-2. `tunnel-client` — official image `ghcr.io/openai/tunnel-client`, points at the MCP service
+1. `local-coding-mcp` — MCP on port 5000  
+2. `tunnel-client` — `ghcr.io/openai/tunnel-client` → MCP service  
+3. *(optional)* `code-server` — browser VS Code on the same workspace
 
 ```text
 ChatGPT / Codex
@@ -90,13 +91,9 @@ export MCP_WORKSPACE="$HOME/projects"
 docker compose pull
 docker compose up -d
 
-# MCP health
-curl -fsS http://127.0.0.1:5000/health
-
-# tunnel-client operator UI
-curl -fsS http://127.0.0.1:8080/healthz
-curl -fsS http://127.0.0.1:8080/readyz
-# open http://127.0.0.1:8080/ui
+curl -fsS http://127.0.0.1:5000/health   # MCP
+curl -fsS http://127.0.0.1:8080/readyz   # tunnel-client
+# http://127.0.0.1:8080/ui
 ```
 
 Logs:
@@ -119,10 +116,7 @@ Guides: [Secure MCP Tunnels](https://developers.openai.com/api/docs/guides/secur
 
 ### Fallback: public tunnel (ngrok)
 
-Only if Secure MCP Tunnel is unavailable:
-
 ```bash
-# MCP only
 docker run --rm -d --name local-coding-mcp -p 5000:5000 \
   -e AllowedRoots__0=/workspace -v "$HOME/projects":/workspace \
   ghcr.io/dhhieu113pro/local-coding-mcp:latest
@@ -131,6 +125,33 @@ ngrok http 5000
 ```
 
 ChatGPT → **Connection → URL**: `https://<public-host>/mcp`
+
+---
+
+## Optional: code-server (browser IDE)
+
+Edit the same mounted projects in the browser (VS Code). **Not started by default.**
+
+```bash
+export MCP_WORKSPACE="$HOME/projects"
+export CODE_SERVER_PASSWORD="your-strong-password"
+
+# MCP + tunnel + IDE
+docker compose --profile ide up -d
+
+# Or IDE only (if MCP already running)
+docker compose --profile ide up -d code-server
+```
+
+Open: **http://127.0.0.1:8443** — password = `CODE_SERVER_PASSWORD` (default `changeme`).
+
+Workspace root inside the IDE: `/home/coder/project` (same host folder as MCP `/workspace`).
+
+Stop IDE only:
+
+```bash
+docker compose --profile ide stop code-server
+```
 
 ---
 
@@ -189,6 +210,7 @@ Full parameters + **example input/output**: **[LocalCodingMcp/README.md](LocalCo
 - Blocks path traversal and symlink escapes
 - Blocks sensitive names (`.env`, keys, `*.pem`, …)
 - Shell commands run with timeout, cwd = workspace root
+- code-server is optional and password-gated; do not expose port 8443 publicly without TLS/VPN
 
 ---
 

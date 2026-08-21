@@ -1,16 +1,21 @@
-# LocalCodingMcp + OpenAI Secure MCP Tunnel (tunnel-client in container)
+# LocalCodingMcp + OpenAI Secure MCP Tunnel (+ optional code-server)
 #
-# 1. Export secrets (do not commit):
-#    export CONTROL_PLANE_API_KEY=sk-...
-#    export CONTROL_PLANE_TUNNEL_ID=tunnel_...
-#    export MCP_WORKSPACE=$HOME/projects
+# Required env (do not commit secrets):
+#   export CONTROL_PLANE_API_KEY=sk-...
+#   export CONTROL_PLANE_TUNNEL_ID=tunnel_...
+#   export MCP_WORKSPACE=$HOME/projects
 #
-# 2. Start both services:
-#    docker compose up -d
+# Default (MCP + tunnel):
+#   docker compose up -d
 #
-# MCP (internal):  http://local-coding-mcp:5000/mcp
-# MCP (host):      http://127.0.0.1:5000/mcp
-# Tunnel UI:       http://127.0.0.1:8080/ui
+# Optional browser IDE (code-server):
+#   export CODE_SERVER_PASSWORD=your-strong-password
+#   docker compose --profile ide up -d
+#
+# Ports:
+#   MCP:        http://127.0.0.1:5000/mcp
+#   Tunnel UI:  http://127.0.0.1:8080/ui
+#   code-server:http://127.0.0.1:8443  (profile ide only)
 
 services:
   local-coding-mcp:
@@ -46,11 +51,30 @@ services:
     environment:
       CONTROL_PLANE_API_KEY: ${CONTROL_PLANE_API_KEY}
       CONTROL_PLANE_TUNNEL_ID: ${CONTROL_PLANE_TUNNEL_ID}
-      # Reach MCP over the compose network (not localhost)
       MCP_SERVER_URL: http://local-coding-mcp:5000/mcp
       LOG_LEVEL: info
       LOG_FORMAT: json
       HEALTH_LISTEN_ADDR: ":8080"
     ports:
       - "8080:8080"
+    restart: unless-stopped
+
+  # Optional: VS Code in the browser over the same /workspace mount
+  # Start with: docker compose --profile ide up -d
+  code-server:
+    profiles: ["ide"]
+    image: codercom/code-server:latest
+    container_name: local-coding-mcp-ide
+    environment:
+      PASSWORD: ${CODE_SERVER_PASSWORD:-changeme}
+    volumes:
+      - ${MCP_WORKSPACE:-./workspace}:/home/coder/project
+    ports:
+      - "8443:8080"
+    command:
+      - --bind-addr
+      - 0.0.0.0:8080
+      - --auth
+      - password
+      - /home/coder/project
     restart: unless-stopped
