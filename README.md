@@ -2,11 +2,22 @@
   <img src="docs/logo.svg" alt="LocalCodingMcp logo" width="160" height="160"/>
 </p>
 
+<p align="center">
+  <img src="docs/how-it-works.svg" alt="How LocalCodingMcp works" width="900"/>
+</p>
+
 # LocalCodingMcp
 
 Secure local coding **MCP server** (C# / .NET 10) for **ChatGPT**, **Grok**, and other MCP clients.
 
-Open a project folder (under approved roots only), list/read/write/patch files, search code, run shell commands, and inspect git — all path-sandboxed.
+Open a project folder (under approved roots only), list/read/write/patch files (including binary via base64), search code, run shell commands, and inspect git — all path-sandboxed.
+
+### How it works (short)
+
+1. **Your PC** — mount a folder (e.g. `D:/wslc/workspaces`) into the container as `/workspace`
+2. **Docker** — LocalCoding MCP listens on `:5000/mcp` with path sandbox + tools
+3. **ngrok** — public HTTPS URL so remote clients can reach you
+4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`, then `OpenWorkspace`
 
 | | |
 |---|---|
@@ -36,7 +47,7 @@ docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat → `OpenWorkspace` with `/workspace/...`.
+ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat → `OpenWorkspace` with `/workspace/...`.
 
 ---
 
@@ -58,7 +69,7 @@ Network: **`mcp-net`**. Secrets: **`.env`** (see `.env.example`).
 ```text
 OpenWorkspace(path)  →  workspace_id
 ListDirectory / ReadFile / SearchFiles
-WriteFile or ApplyPatch
+WriteFile / WriteBinaryFile / ApplyPatch
 RunCommand
 GitStatus / GitDiff / GitLog
 ```
@@ -75,6 +86,8 @@ GitStatus / GitDiff / GitLog
 | **ListDirectory** | List files/dirs |
 | **ReadFile** | Read text file |
 | **WriteFile** | Create/overwrite text file |
+| **WriteBinaryFile** | Write binary (PNG/JPG/…) from base64 |
+| **ReadBinaryFile** | Read binary as base64 |
 | **ApplyPatch** | Unified diff |
 | **SearchFiles** | Regex/text search |
 | **CreateDirectory** | Create directory |
@@ -89,7 +102,8 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 ## Branding
 
-- Logo (SVG): [docs/logo.svg](docs/logo.svg)
+- Logo: [docs/logo.svg](docs/logo.svg)
+- How it works diagram: [docs/how-it-works.svg](docs/how-it-works.svg)
 - ChatGPT connector icon: square **512×512 PNG** export of the logo
 
 ---
