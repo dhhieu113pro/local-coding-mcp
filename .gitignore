@@ -1,0 +1,10 @@
+.env
+.env.local
+*.user
+bin/
+obj/
+TestResults/
+CoverageResults/
+.vs/
+workspace/
+**/*.zip
