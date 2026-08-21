@@ -12,7 +12,7 @@ It lets **ChatGPT**, **Grok**, and other MCP clients:
 
 All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are blocked.
 
-[![CI](https://github.com/dhhieu113pro/LocalCodingMcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/LocalCodingMcp/actions/workflows/ci.yml)
+[![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml)
 
 ---
 
