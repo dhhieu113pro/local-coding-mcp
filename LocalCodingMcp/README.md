@@ -12,7 +12,7 @@ It lets **ChatGPT**, **Grok**, and other MCP clients:
 
 All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are blocked.
 
-[![CI](https://github.com/YOUR_USER/LocalCodingMcp/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USER/LocalCodingMcp/actions/workflows/ci.yml)
+[![CI](https://github.com/dhhieu113pro/LocalCodingMcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/LocalCodingMcp/actions/workflows/ci.yml)
 
 ---
 
@@ -523,4 +523,6 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR:
 
 ---
 
-MIT License — use and modify freely.
+## License
+
+[MIT](../LICENSE) — use and modify freely.
