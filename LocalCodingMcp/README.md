@@ -14,6 +14,8 @@ All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are bl
 
 [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml)
 
+**Docker / Windows / tunnel setup:** see root **[SETUP.md](../SETUP.md)** and **[README.md](../README.md)**.
+
 ---
 
 ## Requirements
@@ -23,14 +25,14 @@ All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are bl
 
 ---
 
-## Quick start
+## Quick start (dotnet)
 
 ```bash
 # 1. Edit allowed roots in appsettings.json
 # 2. Run
 dotnet run --project LocalCodingMcp
 
-# MCP endpoint (port may vary — check console)
+# MCP endpoint (check console for port)
 # http://localhost:5000/mcp
 ```
 
@@ -65,20 +67,22 @@ Linux / macOS:
 }
 ```
 
-### Connect to ChatGPT / remote clients
+### Connect to ChatGPT
 
-1. Start the server: `dotnet run --project LocalCodingMcp`
-2. Expose it with a tunnel (ngrok, Cloudflare Tunnel, Pinggy, …):
+**Preferred:** Docker Compose + OpenAI Secure MCP Tunnel (no public URL).
+
+See **[SETUP.md](../SETUP.md)** — `.env`, `docker compose up -d`, ChatGPT **Connection → Tunnel**.
+
+**Fallback:** public HTTPS tunnel:
 
 ```bash
 ngrok http 5000
 # or: cloudflared tunnel --url http://localhost:5000
 ```
 
-3. In ChatGPT → **Settings → Developer Mode** → add connector  
-   URL: `https://your-tunnel.example.com/mcp`
+ChatGPT → Connection → **URL** → `https://<public-host>/mcp`.
 
-4. Call `OpenWorkspace` with a path under `AllowedRoots`, then use the returned `workspace_id`.
+Always call `OpenWorkspace` first with a path under allowed roots (in Docker: `/workspace/...`).
 
 ---
 
@@ -100,7 +104,7 @@ Open a project folder and get a `workspace_id` for later calls.
 **Example input**
 
 ```json
-{ "path": "/home/you/projects/my-app" }
+{ "path": "/workspace/my-app" }
 ```
 
 **Example output**
@@ -108,7 +112,7 @@ Open a project folder and get a `workspace_id` for later calls.
 ```json
 {
   "workspace_id": "a1b2c3d4e5f6",
-  "root": "/home/you/projects/my-app",
+  "root": "/workspace/my-app",
   "message": "Workspace opened. Use this workspace_id in subsequent tool calls."
 }
 ```
@@ -125,7 +129,7 @@ List currently open workspaces.
 [
   {
     "workspace_id": "a1b2c3d4e5f6",
-    "root": "/home/you/projects/my-app",
+    "root": "/workspace/my-app",
     "opened_at": "2026-08-21T00:00:00+00:00"
   }
 ]
@@ -140,7 +144,7 @@ Show configured allowed roots from server config.
 **Example output**
 
 ```json
-["/home/you/projects", "/tmp/mcp-workspace"]
+["/workspace"]
 ```
 
 ---
@@ -484,6 +488,8 @@ LocalCodingMcp.sln
 │       ├── GitTools.cs
 │       └── ShellTools.cs
 ├── LocalCodingMcp.Tests/
+├── docker-compose.yml
+├── SETUP.md
 └── .github/workflows/ci.yml
 ```
 
@@ -492,13 +498,9 @@ LocalCodingMcp.sln
 ## Development
 
 ```bash
-# Restore + build
 dotnet build LocalCodingMcp.sln -c Release
-
-# Run unit tests
 dotnet test LocalCodingMcp.sln -c Release
 
-# Tests + coverage (Linux-friendly)
 dotnet test LocalCodingMcp.sln -c Release \
   --collect:"XPlat Code Coverage" \
   --settings LocalCodingMcp.Tests/coverlet.runsettings
@@ -506,20 +508,20 @@ dotnet test LocalCodingMcp.sln -c Release \
 
 ### CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR:
-
 | Job | Platforms |
 |-----|-----------|
 | **Test** | `ubuntu-latest`, `macos-latest`, `windows-latest` (.NET 10) |
 | **Coverage** | Linux only (after tests pass) |
+| **Docker Publish** | pushes `ghcr.io/dhhieu113pro/local-coding-mcp` on `main` |
 
 ---
 
 ## Notes
 
 - Packages target **ModelContextProtocol 2.2.0** (stable).
-- `ApplyPatch` uses a simple unified-diff applier — good for focused edits; large/complex patches may need a stronger library.
-- This project exposes **Streamable HTTP** (`/mcp`) for ChatGPT web + tunnel. For pure local stdio (desktop / Grok Build), add a stdio host entry later if needed.
+- `ApplyPatch` uses a simple unified-diff applier — good for focused edits.
+- HTTP transport: Streamable HTTP at `/mcp` (ChatGPT + OpenAI tunnel-client).
+- Docker Compose profiles: default MCP+tunnel, `ide` (code-server), `termux` (test shell).
 
 ---
 

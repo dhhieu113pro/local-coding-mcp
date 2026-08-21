@@ -6,7 +6,7 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 | | |
 |---|---|
-| **Setup (Windows / WSL / tunnel / keys)** | **[SETUP.md](SETUP.md)** |
+| **Setup (Windows / WSL / keys / tunnel)** | **[SETUP.md](SETUP.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
 | **Docker image** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
@@ -16,11 +16,9 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 ## Quick start
 
-Full steps (API key, tunnel id, `.env`, Compose, ChatGPT, GitHub token, Windows volume tips):
+Full guide (API key, tunnel id, `.env`, Compose, ChatGPT, GitHub token, Windows volumes, Termux):
 
 ### → **[SETUP.md](SETUP.md)**
-
-Short version:
 
 ```powershell
 git clone https://github.com/dhhieu113pro/local-coding-mcp.git
@@ -33,9 +31,41 @@ docker compose up -d
 
 curl http://127.0.0.1:5000/health
 curl http://127.0.0.1:8080/readyz
+# Tunnel UI: http://127.0.0.1:8080/ui
 ```
 
-ChatGPT → Connection → **Tunnel** → same tunnel id → new chat → `OpenWorkspace` path `/workspace/...`.
+ChatGPT → Connection → **Tunnel** → same tunnel id → new chat → `OpenWorkspace` with `/workspace/...`.
+
+---
+
+## Compose stack
+
+Default (`docker compose up -d`):
+
+| Service | Container | Port | Role |
+|---------|-----------|------|------|
+| `local-coding-mcp` | `local-coding-mcp` | **5000** | MCP server (`/mcp`, `/health`) |
+| `tunnel-client` | `local-coding-mcp-tunnel` | **8080** | OpenAI Secure MCP Tunnel (`ALLOW_REMOTE_UI=true`) |
+
+Shared Docker network: **`mcp-net`**. Tunnel calls MCP at `http://local-coding-mcp:5000/mcp`.
+
+Optional profiles:
+
+| Profile | Command | Port | Role |
+|---------|---------|------|------|
+| `ide` | `docker compose --profile ide up -d` | **8443** | code-server (browser VS Code) |
+| `termux` | `docker compose --profile termux run --rm termux` | — | Termux-like test shell |
+
+```powershell
+# Browser IDE
+docker compose --profile ide up -d
+# http://127.0.0.1:8443
+
+# Termux test environment (interactive)
+docker compose --profile termux run --rm termux
+```
+
+Secrets live in **`.env`** next to `docker-compose.yml` (see `.env.example`). Never commit `.env`.
 
 ---
 
@@ -92,6 +122,8 @@ dotnet run --project LocalCodingMcp
 ```
 
 Edit `LocalCodingMcp/appsettings.json` → `AllowedRoots`.
+
+Prefer Docker + OpenAI tunnel for ChatGPT: **[SETUP.md](SETUP.md)**.
 
 ---
 
