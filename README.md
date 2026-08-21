@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="LocalCodingMcp logo" width="160" height="160"/>
+</p>
+
 # LocalCodingMcp
 
 Secure local coding **MCP server** (C# / .NET 10) for **ChatGPT**, **Grok**, and other MCP clients.
@@ -95,10 +99,17 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 ---
 
+## Branding
+
+- Logo (SVG): [docs/logo.svg](docs/logo.svg)
+- For **ChatGPT connector icon**, use a **512×512 PNG** export of the logo (square). See conversation assets or export from the SVG.
+
+---
+
 ## Safety
 
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
-- Blocks traversal, symlink escape, sensitive names
+- Blocks path traversal, symlink escape, sensitive names
 - Do not expose 5000 / 8080 / 8443 / ngrok URL without care
 
 ---
