@@ -1,15 +1,20 @@
-# LocalCodingMcp + OpenAI tunnel-client (shared network)
+# LocalCodingMcp + optional tunnels
 #
-# Setup:
-#   1. Copy .env.example → .env and fill secrets
-#   2. docker compose up -d
+# Default (MCP + OpenAI tunnel-client):
+#   docker compose up -d
 #
-# Optional profiles:
-#   docker compose --profile ide up -d      # code-server
-#   docker compose --profile termux run termux   # interactive Termux shell
+# MCP only:
+#   docker compose up -d local-coding-mcp
 #
-# Windows MCP_WORKSPACE example: D:/wslc/workspaces
-# WSL example:                   /home/you/projects
+# Public HTTPS via ngrok (needs NGROK_AUTHTOKEN in .env):
+#   docker compose up -d local-coding-mcp
+#   docker compose --profile ngrok up -d
+#
+# Optional:
+#   docker compose --profile ide up -d
+#   docker compose --profile termux run --rm termux
+#
+# Windows MCP_WORKSPACE: D:/wslc/workspaces
 
 services:
   local-coding-mcp:
@@ -35,6 +40,7 @@ services:
       retries: 5
       start_period: 10s
 
+  # OpenAI Secure MCP Tunnel (default stack)
   tunnel-client:
     image: ghcr.io/openai/tunnel-client:latest
     container_name: local-coding-mcp-tunnel
@@ -50,13 +56,34 @@ services:
       LOG_LEVEL: info
       LOG_FORMAT: json
       HEALTH_LISTEN_ADDR: ":8080"
-      # Needed so http://127.0.0.1:8080/ui works via published port
       ALLOW_REMOTE_UI: "true"
     networks:
       - mcp-net
     restart: unless-stopped
 
-  # Optional browser IDE
+  # Public HTTPS via ngrok — profile: ngrok
+  # Requires NGROK_AUTHTOKEN in .env
+  # ChatGPT Connection → URL → https://<your-ngrok-host>/mcp
+  ngrok:
+    profiles: ["ngrok"]
+    image: ngrok/ngrok:latest
+    container_name: local-coding-mcp-ngrok
+    depends_on:
+      local-coding-mcp:
+        condition: service_healthy
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    # Reach MCP by service name on mcp-net
+    command:
+      - http
+      - local-coding-mcp:5000
+      - --log=stdout
+    ports:
+      - "4040:4040"   # ngrok local inspector http://127.0.0.1:4040
+    networks:
+      - mcp-net
+    restart: unless-stopped
+
   code-server:
     profiles: ["ide"]
     image: codercom/code-server:latest
@@ -77,12 +104,6 @@ services:
       - mcp-net
     restart: unless-stopped
 
-  # Optional Termux test environment (Android-like shell for experiments)
-  # Interactive:
-  #   docker compose --profile termux run --rm termux
-  # Detached (then attach):
-  #   docker compose --profile termux up -d termux
-  #   docker attach local-coding-mcp-termux
   termux:
     profiles: ["termux"]
     image: termux/termux-docker:latest
@@ -90,12 +111,10 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      # Same host projects visible inside Termux
       - ${MCP_WORKSPACE:-./workspace}:/workspace
     working_dir: /workspace
     networks:
       - mcp-net
-    # Keep container alive when started with up -d
     command: ["sleep", "infinity"]
 
 networks:

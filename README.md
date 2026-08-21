@@ -6,7 +6,7 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 | | |
 |---|---|
-| **Setup (Windows / WSL / keys / tunnel)** | **[SETUP.md](SETUP.md)** |
+| **Setup (OpenAI tunnel / ngrok / Windows)** | **[SETUP.md](SETUP.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
 | **Docker image** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
@@ -16,56 +16,48 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 ## Quick start
 
-Full guide (API key, tunnel id, `.env`, Compose, ChatGPT, GitHub token, Windows volumes, Termux):
+Full guide: **[SETUP.md](SETUP.md)**
 
-### → **[SETUP.md](SETUP.md)**
+### A) OpenAI Secure MCP Tunnel (preferred)
 
 ```powershell
-git clone https://github.com/dhhieu113pro/local-coding-mcp.git
-cd local-coding-mcp
 copy .env.example .env
-# edit .env → CONTROL_PLANE_API_KEY, CONTROL_PLANE_TUNNEL_ID, MCP_WORKSPACE=D:/wslc/workspaces
+# CONTROL_PLANE_API_KEY, CONTROL_PLANE_TUNNEL_ID, MCP_WORKSPACE=D:/wslc/workspaces
 
-docker compose pull
 docker compose up -d
-
 curl http://127.0.0.1:5000/health
 curl http://127.0.0.1:8080/readyz
-# Tunnel UI: http://127.0.0.1:8080/ui
 ```
 
-ChatGPT → Connection → **Tunnel** → same tunnel id → new chat → `OpenWorkspace` with `/workspace/...`.
+ChatGPT → **Connection → Tunnel** → tunnel id.
+
+### B) ngrok (you have an authtoken)
+
+```powershell
+# .env → NGROK_AUTHTOKEN=...  and  MCP_WORKSPACE=D:/wslc/workspaces
+
+docker compose up -d local-coding-mcp
+docker compose --profile ngrok up -d
+
+docker compose logs ngrok
+# copy https://xxxx.ngrok-free.app
+```
+
+ChatGPT → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp`
 
 ---
 
 ## Compose stack
 
-Default (`docker compose up -d`):
-
-| Service | Container | Port | Role |
-|---------|-----------|------|------|
-| `local-coding-mcp` | `local-coding-mcp` | **5000** | MCP server (`/mcp`, `/health`) |
-| `tunnel-client` | `local-coding-mcp-tunnel` | **8080** | OpenAI Secure MCP Tunnel (`ALLOW_REMOTE_UI=true`) |
-
-Shared Docker network: **`mcp-net`**. Tunnel calls MCP at `http://local-coding-mcp:5000/mcp`.
-
-Optional profiles:
-
-| Profile | Command | Port | Role |
+| Service | Profile | Port | Role |
 |---------|---------|------|------|
-| `ide` | `docker compose --profile ide up -d` | **8443** | code-server (browser VS Code) |
-| `termux` | `docker compose --profile termux run --rm termux` | — | Termux-like test shell |
+| `local-coding-mcp` | (default) | **5000** | MCP `/mcp` |
+| `tunnel-client` | (default) | **8080** | OpenAI Secure MCP Tunnel |
+| `ngrok` | **`ngrok`** | **4040** inspector | Public HTTPS to MCP |
+| `code-server` | **`ide`** | **8443** | Browser VS Code |
+| `termux` | **`termux`** | — | Termux-like test shell |
 
-```powershell
-# Browser IDE
-docker compose --profile ide up -d
-# http://127.0.0.1:8443
-
-# Termux test environment (interactive)
-docker compose --profile termux run --rm termux
-```
-
-Secrets live in **`.env`** next to `docker-compose.yml` (see `.env.example`). Never commit `.env`.
+Network: **`mcp-net`**. Secrets: **`.env`** (see `.env.example`).
 
 ---
 
@@ -75,7 +67,7 @@ Secrets live in **`.env`** next to `docker-compose.yml` (see `.env.example`). Ne
 OpenWorkspace(path)  →  workspace_id
 ListDirectory / ReadFile / SearchFiles
 WriteFile or ApplyPatch
-RunCommand (e.g. tests)
+RunCommand
 GitStatus / GitDiff / GitLog
 ```
 
@@ -89,45 +81,38 @@ GitStatus / GitDiff / GitLog
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show allowed roots |
 | **ListDirectory** | List files/dirs |
-| **ReadFile** | Read text file (optional line range) |
+| **ReadFile** | Read text file |
 | **WriteFile** | Create/overwrite text file |
-| **ApplyPatch** | Apply unified diff |
+| **ApplyPatch** | Unified diff |
 | **SearchFiles** | Regex/text search |
 | **CreateDirectory** | Create directory |
 | **MoveFile** | Move/rename |
-| **DeleteFile** | Delete file or empty dir |
-| **GitStatus** | `git status` |
-| **GitDiff** | Unstaged/staged diff |
-| **GitLog** | Recent commits |
-| **RunCommand** | Shell command in workspace (timeout) |
+| **DeleteFile** | Delete file/empty dir |
+| **GitStatus** / **GitDiff** / **GitLog** | Git inspect |
+| **RunCommand** | Shell in workspace |
 
-Details + examples: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
+Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 ---
 
 ## Safety
 
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
-- Blocks path traversal, symlink escape, sensitive names (`.env`, keys, `*.pem`, …)
-- Shell timeout; cwd = workspace root
-- Do not expose ports 5000 / 8080 / 8443 publicly without protection
+- Blocks traversal, symlink escape, sensitive names
+- Do not expose 5000 / 8080 / 8443 / ngrok URL without care
 
 ---
 
-## Dev (dotnet, no Docker)
+## Dev (dotnet)
 
 ```bash
 dotnet test LocalCodingMcp.sln -c Release
 dotnet run --project LocalCodingMcp
 ```
 
-Edit `LocalCodingMcp/appsettings.json` → `AllowedRoots`.
-
-Prefer Docker + OpenAI tunnel for ChatGPT: **[SETUP.md](SETUP.md)**.
-
 ---
 
-## Build image locally (optional)
+## Build image locally
 
 ```bash
 docker build -t local-coding-mcp .
