@@ -14,7 +14,7 @@ All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are bl
 
 [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml)
 
-**Docker / Windows / tunnel setup:** see root **[SETUP.md](../SETUP.md)** and **[README.md](../README.md)**.
+**Docker / Windows / ngrok setup:** see root **[SETUP.md](../SETUP.md)** and **[README.md](../README.md)**.
 
 ---
 
@@ -69,18 +69,22 @@ Linux / macOS:
 
 ### Connect to ChatGPT
 
-**Preferred:** Docker Compose + OpenAI Secure MCP Tunnel (no public URL).
+Use **ngrok** (or another public HTTPS tunnel) and ChatGPT **Connection → URL**.
 
-See **[SETUP.md](../SETUP.md)** — `.env`, `docker compose up -d`, ChatGPT **Connection → Tunnel**.
+See **[SETUP.md](../SETUP.md)**:
 
-**Fallback:** public HTTPS tunnel:
+```bash
+docker compose up -d
+docker compose --profile ngrok up -d
+# URL: https://xxxx.ngrok-free.app/mcp
+```
+
+Or:
 
 ```bash
 ngrok http 5000
 # or: cloudflared tunnel --url http://localhost:5000
 ```
-
-ChatGPT → Connection → **URL** → `https://<public-host>/mcp`.
 
 Always call `OpenWorkspace` first with a path under allowed roots (in Docker: `/workspace/...`).
 
@@ -94,8 +98,6 @@ Tool names follow C# method names (MCP C# SDK default).
 ### Workspace
 
 #### `OpenWorkspace`
-
-Open a project folder and get a `workspace_id` for later calls.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -117,343 +119,21 @@ Open a project folder and get a `workspace_id` for later calls.
 }
 ```
 
-#### `ListWorkspaces`
+#### `ListWorkspaces` / `GetAllowedRoots`
 
-List currently open workspaces.
-
-**Example input:** `{}`
-
-**Example output**
-
-```json
-[
-  {
-    "workspace_id": "a1b2c3d4e5f6",
-    "root": "/workspace/my-app",
-    "opened_at": "2026-08-21T00:00:00+00:00"
-  }
-]
-```
-
-#### `GetAllowedRoots`
-
-Show configured allowed roots from server config.
-
-**Example input:** `{}`
-
-**Example output**
-
-```json
-["/workspace"]
-```
+No required params beyond empty input where applicable.
 
 ---
 
 ### Files
 
-#### `ListDirectory`
-
-List files and directories under a path relative to the workspace.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path (use `"."` for root) |
-| `workspace_id` | string | yes | From `OpenWorkspace` |
-
-**Example input**
-
-```json
-{ "path": "src", "workspace_id": "a1b2c3d4e5f6" }
-```
-
-**Example output**
-
-```json
-[
-  { "name": "Program.cs", "type": "file", "size": 1234 },
-  { "name": "Services", "type": "directory", "size": null }
-]
-```
-
-#### `ReadFile`
-
-Read a text file (optionally a line range).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path |
-| `workspace_id` | string | yes | Workspace id |
-| `start_line` | int | no | 1-based start line |
-| `end_line` | int | no | 1-based end line |
-
-**Example input**
-
-```json
-{
-  "path": "README.md",
-  "workspace_id": "a1b2c3d4e5f6",
-  "start_line": 1,
-  "end_line": 20
-}
-```
-
-**Example output**
-
-```text
-# My App
-
-Local coding helper...
-```
-
-#### `WriteFile`
-
-Create or overwrite a UTF-8 text file (creates parent directories).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path |
-| `content` | string | yes | Full file content |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{
-  "path": "src/Hello.cs",
-  "content": "Console.WriteLine(\"hi\");\n",
-  "workspace_id": "a1b2c3d4e5f6"
-}
-```
-
-**Example output**
-
-```text
-Wrote src/Hello.cs (28 chars)
-```
-
-#### `ApplyPatch`
-
-Apply a **unified diff** patch to an existing file (safer than full rewrite).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path |
-| `patch` | string | yes | Unified diff body |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{
-  "path": "src/Hello.cs",
-  "patch": "@@ -1,1 +1,1 @@\n-Console.WriteLine(\"hi\");\n+Console.WriteLine(\"hello\");\n",
-  "workspace_id": "a1b2c3d4e5f6"
-}
-```
-
-**Example output**
-
-```text
-Patch applied to src/Hello.cs
-```
-
-#### `SearchFiles`
-
-Search text/regex across files (skips binaries and blocked sensitive names).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `query` | string | yes | Text or regex pattern |
-| `workspace_id` | string | yes | Workspace id |
-| `path` | string | no | Subfolder to search (default `"."`) |
-| `max_results` | int | no | Cap results (default from config) |
-
-**Example input**
-
-```json
-{
-  "query": "OpenWorkspace",
-  "workspace_id": "a1b2c3d4e5f6",
-  "path": "Tools",
-  "max_results": 20
-}
-```
-
-**Example output**
-
-```json
-[
-  {
-    "file": "Tools/WorkspaceTools.cs",
-    "line": 21,
-    "text": "public string OpenWorkspace("
-  }
-]
-```
-
-#### `CreateDirectory`
-
-Create a directory (and parents if needed).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{ "path": "src/NewFeature", "workspace_id": "a1b2c3d4e5f6" }
-```
-
-**Example output**
-
-```text
-Created directory src/NewFeature
-```
-
-#### `MoveFile`
-
-Move or rename a file or directory.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `source` | string | yes | Source relative path |
-| `destination` | string | yes | Destination relative path |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{
-  "source": "old.cs",
-  "destination": "src/old.cs",
-  "workspace_id": "a1b2c3d4e5f6"
-}
-```
-
-**Example output**
-
-```text
-Moved old.cs → src/old.cs
-```
-
-#### `DeleteFile`
-
-Delete a file or an **empty** directory.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Relative path |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{ "path": "tmp/scratch.txt", "workspace_id": "a1b2c3d4e5f6" }
-```
-
-**Example output**
-
-```text
-Deleted file tmp/scratch.txt
-```
+`ListDirectory`, `ReadFile`, `WriteFile`, `ApplyPatch`, `SearchFiles`, `CreateDirectory`, `MoveFile`, `DeleteFile` — all take `workspace_id` and relative paths. See prior docs examples in git history or call tools from a live server.
 
 ---
 
-### Git
+### Git / Shell
 
-#### `GitStatus`
-
-Run `git status` in the workspace.
-
-| Param | Type | Required |
-|-------|------|----------|
-| `workspace_id` | string | yes |
-
-**Example output**
-
-```json
-{
-  "exit_code": 0,
-  "output": "## main\n M src/Hello.cs\n",
-  "error": ""
-}
-```
-
-#### `GitDiff`
-
-Show unstaged (or staged) diff.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `workspace_id` | string | yes | Workspace id |
-| `staged` | bool | no | `true` → `git diff --cached` |
-
-**Example input**
-
-```json
-{ "workspace_id": "a1b2c3d4e5f6", "staged": false }
-```
-
-**Example output**
-
-```json
-{
-  "exit_code": 0,
-  "diff": "diff --git a/src/Hello.cs b/src/Hello.cs\n...",
-  "error": ""
-}
-```
-
-#### `GitLog`
-
-Recent commits (`git log --oneline`).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `workspace_id` | string | yes | Workspace id |
-| `count` | int | no | Number of commits (default 10, max 50) |
-
-**Example output**
-
-```json
-{
-  "exit_code": 0,
-  "log": "a1b2c3d init\nb2c3d4e add hello\n",
-  "error": ""
-}
-```
-
----
-
-### Shell
-
-#### `RunCommand`
-
-Run a shell command **inside the workspace** (timeout from config, default 30s).
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `command` | string | yes | Command string |
-| `workspace_id` | string | yes | Workspace id |
-
-**Example input**
-
-```json
-{ "command": "dotnet build", "workspace_id": "a1b2c3d4e5f6" }
-```
-
-**Example output**
-
-```json
-{
-  "exit_code": 0,
-  "stdout": "Build succeeded.\n",
-  "stderr": "",
-  "duration_ms": 1234.5
-}
-```
+`GitStatus`, `GitDiff`, `GitLog`, `RunCommand` — `workspace_id` required; shell runs with timeout in workspace cwd.
 
 ---
 
@@ -464,8 +144,7 @@ Run a shell command **inside the workspace** (timeout from config, default 30s).
 | **Allowed roots** | Only paths under configured roots |
 | **Path sandbox** | Blocks `../`, absolute escapes, symlink escapes |
 | **Sensitive files** | Blocks `.env`, SSH keys, `*.pem` / `*.pfx`, credential JSON, … |
-| **Commands** | Timeout (configurable); no unrestricted host access outside workspace cwd |
-| **Patches** | Prefer `ApplyPatch` over full `WriteFile` for edits |
+| **Commands** | Timeout; cwd = workspace root |
 
 ---
 
@@ -474,19 +153,6 @@ Run a shell command **inside the workspace** (timeout from config, default 30s).
 ```
 LocalCodingMcp.sln
 ├── LocalCodingMcp/
-│   ├── Program.cs
-│   ├── appsettings.json
-│   ├── Services/
-│   │   ├── PathSandbox.cs
-│   │   ├── SensitiveFileFilter.cs
-│   │   ├── WorkspaceManager.cs
-│   │   ├── CommandRunner.cs
-│   │   └── PatchApplier.cs
-│   └── Tools/
-│       ├── WorkspaceTools.cs
-│       ├── FileTools.cs
-│       ├── GitTools.cs
-│       └── ShellTools.cs
 ├── LocalCodingMcp.Tests/
 ├── docker-compose.yml
 ├── SETUP.md
@@ -500,31 +166,26 @@ LocalCodingMcp.sln
 ```bash
 dotnet build LocalCodingMcp.sln -c Release
 dotnet test LocalCodingMcp.sln -c Release
-
-dotnet test LocalCodingMcp.sln -c Release \
-  --collect:"XPlat Code Coverage" \
-  --settings LocalCodingMcp.Tests/coverlet.runsettings
 ```
 
 ### CI
 
 | Job | Platforms |
 |-----|-----------|
-| **Test** | `ubuntu-latest`, `macos-latest`, `windows-latest` (.NET 10) |
-| **Coverage** | Linux only (after tests pass) |
-| **Docker Publish** | pushes `ghcr.io/dhhieu113pro/local-coding-mcp` on `main` |
+| **Test** | ubuntu, macOS, Windows (.NET 10) |
+| **Coverage** | Linux |
+| **Docker Publish** | `ghcr.io/dhhieu113pro/local-coding-mcp` on `main` |
 
 ---
 
 ## Notes
 
-- Packages target **ModelContextProtocol 2.2.0** (stable).
-- `ApplyPatch` uses a simple unified-diff applier — good for focused edits.
-- HTTP transport: Streamable HTTP at `/mcp` (ChatGPT + OpenAI tunnel-client).
-- Docker Compose profiles: default MCP+tunnel, `ide` (code-server), `termux` (test shell).
+- ModelContextProtocol **2.2.0**
+- Streamable HTTP at `/mcp`
+- Compose profiles: default MCP, `ngrok`, `ide`, `termux`
 
 ---
 
 ## License
 
-[MIT](../LICENSE) — use and modify freely.
+[MIT](../LICENSE)

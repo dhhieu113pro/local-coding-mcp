@@ -10,7 +10,7 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 | | |
 |---|---|
-| **Setup (OpenAI tunnel / ngrok / Windows)** | **[SETUP.md](SETUP.md)** |
+| **Setup (ngrok / Windows / WSL)** | **[SETUP.md](SETUP.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
 | **Docker image** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
@@ -22,32 +22,21 @@ Open a project folder (under approved roots only), list/read/write/patch files, 
 
 Full guide: **[SETUP.md](SETUP.md)**
 
-### A) OpenAI Secure MCP Tunnel (preferred)
-
 ```powershell
+git clone https://github.com/dhhieu113pro/local-coding-mcp.git
+cd local-coding-mcp
 copy .env.example .env
-# CONTROL_PLANE_API_KEY, CONTROL_PLANE_TUNNEL_ID, MCP_WORKSPACE=D:/wslc/workspaces
+# edit .env → NGROK_AUTHTOKEN, MCP_WORKSPACE=D:/wslc/workspaces
 
 docker compose up -d
-curl http://127.0.0.1:5000/health
-curl http://127.0.0.1:8080/readyz
-```
-
-ChatGPT → **Connection → Tunnel** → tunnel id.
-
-### B) ngrok (you have an authtoken)
-
-```powershell
-# .env → NGROK_AUTHTOKEN=...  and  MCP_WORKSPACE=D:/wslc/workspaces
-
-docker compose up -d local-coding-mcp
 docker compose --profile ngrok up -d
 
+curl http://127.0.0.1:5000/health
 docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp`
+ChatGPT → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat → `OpenWorkspace` with `/workspace/...`.
 
 ---
 
@@ -56,7 +45,6 @@ ChatGPT → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp`
 | Service | Profile | Port | Role |
 |---------|---------|------|------|
 | `local-coding-mcp` | (default) | **5000** | MCP `/mcp` |
-| `tunnel-client` | (default) | **8080** | OpenAI Secure MCP Tunnel |
 | `ngrok` | **`ngrok`** | **4040** inspector | Public HTTPS to MCP |
 | `code-server` | **`ide`** | **8443** | Browser VS Code |
 | `termux` | **`termux`** | — | Termux-like test shell |
@@ -102,7 +90,7 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 ## Branding
 
 - Logo (SVG): [docs/logo.svg](docs/logo.svg)
-- For **ChatGPT connector icon**, use a **512×512 PNG** export of the logo (square). See conversation assets or export from the SVG.
+- ChatGPT connector icon: square **512×512 PNG** export of the logo
 
 ---
 
@@ -110,7 +98,7 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
 - Blocks path traversal, symlink escape, sensitive names
-- Do not expose 5000 / 8080 / 8443 / ngrok URL without care
+- Do not expose 5000 / 8443 / ngrok URL without care
 
 ---
 

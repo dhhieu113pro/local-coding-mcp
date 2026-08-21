@@ -1,13 +1,9 @@
-# LocalCodingMcp + optional tunnels
+# LocalCodingMcp
 #
-# Default (MCP + OpenAI tunnel-client):
+# Default (MCP only):
 #   docker compose up -d
 #
-# MCP only:
-#   docker compose up -d local-coding-mcp
-#
 # Public HTTPS via ngrok (needs NGROK_AUTHTOKEN in .env):
-#   docker compose up -d local-coding-mcp
 #   docker compose --profile ngrok up -d
 #
 # Optional:
@@ -40,27 +36,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # OpenAI Secure MCP Tunnel (default stack)
-  tunnel-client:
-    image: ghcr.io/openai/tunnel-client:latest
-    container_name: local-coding-mcp-tunnel
-    depends_on:
-      local-coding-mcp:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    environment:
-      CONTROL_PLANE_API_KEY: ${CONTROL_PLANE_API_KEY}
-      CONTROL_PLANE_TUNNEL_ID: ${CONTROL_PLANE_TUNNEL_ID}
-      MCP_SERVER_URL: http://local-coding-mcp:5000/mcp
-      LOG_LEVEL: info
-      LOG_FORMAT: json
-      HEALTH_LISTEN_ADDR: ":8080"
-      ALLOW_REMOTE_UI: "true"
-    networks:
-      - mcp-net
-    restart: unless-stopped
-
   # Public HTTPS via ngrok — profile: ngrok
   # Requires NGROK_AUTHTOKEN in .env
   # ChatGPT Connection → URL → https://<your-ngrok-host>/mcp
@@ -73,13 +48,12 @@ services:
         condition: service_healthy
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    # Reach MCP by service name on mcp-net
     command:
       - http
       - local-coding-mcp:5000
       - --log=stdout
     ports:
-      - "4040:4040"   # ngrok local inspector http://127.0.0.1:4040
+      - "4040:4040"
     networks:
       - mcp-net
     restart: unless-stopped
