@@ -67,14 +67,9 @@ public class ToolCoverageTests : IDisposable
             WorkingDirectory = cwd,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
-        // On Linux git is enough; for "git config" we need shell-style sometimes
-        if (args.Contains(' ') && file == "git")
-        {
-            psi.FileName = "/bin/bash";
-            psi.Arguments = $"-c \"git {args.Replace("\"", "\\\"")}\"";
-        }
         using var p = System.Diagnostics.Process.Start(psi);
         p?.WaitForExit(10000);
     }

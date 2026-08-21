@@ -73,7 +73,9 @@ public sealed class PathSandbox
         string normalized;
         try
         {
-            normalized = NormalizeForComparison(fullPath);
+            // Resolve symlinks so macOS /var -> /private/var matches allowed roots
+            var resolved = ResolveSymbolicLinks(Path.GetFullPath(fullPath));
+            normalized = NormalizeForComparison(resolved);
         }
         catch
         {
