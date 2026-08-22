@@ -22,6 +22,7 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 | | |
 |---|---|
 | **Setup (ngrok / Windows / WSL)** | **[SETUP.md](SETUP.md)** |
+| **TermuxHost / Android ZIP** | **[TERMUXHOST.md](TERMUXHOST.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
 | **Docker image** | `ghcr.io/dhhieu113pro/local-coding-mcp:latest` |
@@ -48,6 +49,17 @@ docker compose logs ngrok
 ```
 
 ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat → `OpenWorkspace` with `/workspace/...`.
+
+### TermuxHost release ZIP
+
+For native Android/Termux hosting, push a `v*` tag. GitHub Actions publishes and smoke-tests:
+
+```text
+local-coding-mcp-termux-aarch64.zip
+local-coding-mcp-termux-aarch64.zip.sha256
+```
+
+The ZIP is framework-dependent and uses the .NET 10 runtime installed by TermuxHost. See **[TERMUXHOST.md](TERMUXHOST.md)** for deployment settings.
 
 ---
 
