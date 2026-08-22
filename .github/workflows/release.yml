@@ -40,11 +40,13 @@ jobs:
             --no-restore \
             --self-contained false \
             -o dist/publish
+          cp termuxhost.json dist/publish/termuxhost.json
 
       - name: Verify published files
         run: |
           test -f dist/publish/LocalCodingMcp.dll
           test -f dist/publish/LocalCodingMcp.runtimeconfig.json
+          test -f dist/publish/termuxhost.json
           dotnet --info
 
       - name: Smoke test published app
