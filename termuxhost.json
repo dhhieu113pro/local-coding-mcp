@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "local-coding-mcp",
+  "name": "Local Coding MCP",
+  "description": "Secure local coding MCP server for ChatGPT, Grok, and other MCP clients.",
+  "category": "AI & Development",
+  "runtime": "dotnet",
+  "runtimeVersion": "10.0",
+  "entrypoint": "LocalCodingMcp.dll",
+  "port": 5000,
+  "healthCheck": "/health",
+  "packageAsset": "local-coding-mcp-termux-aarch64.zip",
+  "checksumAsset": "local-coding-mcp-termux-aarch64.zip.sha256",
+  "autoStart": true,
+  "configuration": [
+    {
+      "key": "AllowedRoots__0",
+      "label": "Workspace",
+      "description": "Directory Local Coding MCP is allowed to manage.",
+      "default": "~/workspaces",
+      "required": true,
+      "secret": false
+    },
+    {
+      "key": "CommandTimeoutSeconds",
+      "label": "Command timeout",
+      "description": "Maximum shell command duration in seconds.",
+      "default": "30",
+      "required": true,
+      "secret": false
+    }
+  ]
+}
