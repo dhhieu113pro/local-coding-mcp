@@ -26,6 +26,7 @@ services:
       MaxSearchResults: "100"
     volumes:
       - ${MCP_WORKSPACE:-./workspace}:/workspace
+      - ${MCP_HISTORY:-./history}:/app/data
     networks:
       - mcp-net
     restart: unless-stopped

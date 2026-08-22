@@ -46,6 +46,11 @@ dotnet run --project LocalCodingMcp
   ],
   "CommandTimeoutSeconds": 30,
   "MaxSearchResults": 50,
+  "ExecutionHistory": {
+    "FilePath": "data/execution-history.jsonl",
+    "MaxArgumentLength": 2000,
+    "MaxFileSizeMb": 10
+  },
   "BlockedFileNames": [
     ".env",
     "id_rsa",
@@ -134,6 +139,19 @@ No required params beyond empty input where applicable.
 ### Git / Shell
 
 `GitStatus`, `GitDiff`, `GitLog`, `RunCommand` — `workspace_id` required; shell runs with timeout in workspace cwd.
+
+---
+
+### Execution history
+
+`GetExecutionHistory` returns persisted calls newest-first. Use `count` (1–500), optional
+exact `tool`, and optional `success` filters. Each entry contains its UTC timestamp, tool,
+sanitized arguments, success status, duration, and short error message.
+
+History is stored as append-only JSON Lines at `ExecutionHistory:FilePath`. When the active
+file reaches `MaxFileSizeMb`, it rotates to `.1`. Argument values longer than
+`MaxArgumentLength` are truncated; content, base64, token, password, secret, authorization,
+credential, and private-key fields are always replaced with `[REDACTED]`.
 
 ---
 

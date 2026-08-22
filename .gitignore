@@ -8,3 +8,5 @@ CoverageResults/
 .vs/
 workspace/
 **/*.zip
+LocalCodingMcp/data/
+/history/

@@ -95,8 +95,14 @@ GitStatus / GitDiff / GitLog
 | **DeleteFile** | Delete file/empty dir |
 | **GitStatus** / **GitDiff** / **GitLog** | Git inspect |
 | **RunCommand** | Shell in workspace |
+| **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
 
 Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
+
+Every MCP tool call is appended to `LocalCodingMcp/data/execution-history.jsonl`. Sensitive
+arguments such as file content, base64 data, tokens, passwords, and secrets are redacted.
+The log rotates at 10 MiB by default so repeated LLM calls do not grow storage without limit.
+Docker Compose persists it on the host in `./history` (override with `MCP_HISTORY`).
 
 ---
 

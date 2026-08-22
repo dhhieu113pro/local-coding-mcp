@@ -1,6 +1,7 @@
 // Host entry point — covered by integration smoke, not unit tests.
 using LocalCodingMcp.Services;
 using LocalCodingMcp.Tools;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,17 @@ var allowedRoots = builder.Configuration.GetSection("AllowedRoots").Get<string[]
 
 var blocked = builder.Configuration.GetSection("BlockedFileNames").Get<string[]>();
 var cmdTimeout = builder.Configuration.GetValue("CommandTimeoutSeconds", 30);
+var configuredHistoryPath = builder.Configuration.GetValue<string>("ExecutionHistory:FilePath")
+    ?? Path.Combine("data", "execution-history.jsonl");
+var historyPath = Path.IsPathRooted(configuredHistoryPath)
+    ? configuredHistoryPath
+    : Path.Combine(builder.Environment.ContentRootPath, configuredHistoryPath);
+var historyArgumentLimit = builder.Configuration.GetValue("ExecutionHistory:MaxArgumentLength", 2_000);
+var historyMaxFileMb = builder.Configuration.GetValue("ExecutionHistory:MaxFileSizeMb", 10);
+var historyStore = new ExecutionHistoryStore(
+    historyPath,
+    historyArgumentLimit,
+    Math.Clamp(historyMaxFileMb, 1, 1024) * 1024L * 1024);
 
 // Ensure at least one root exists for demo
 foreach (var root in allowedRoots)
@@ -22,6 +34,7 @@ builder.Services.AddSingleton(new PathSandbox(allowedRoots));
 builder.Services.AddSingleton(new SensitiveFileFilter(blocked));
 builder.Services.AddSingleton<WorkspaceManager>();
 builder.Services.AddSingleton(new CommandRunner(cmdTimeout));
+builder.Services.AddSingleton(historyStore);
 
 // ── MCP Server (HTTP / Streamable HTTP) ─────────────────
 builder.Services
@@ -30,7 +43,39 @@ builder.Services
     .WithTools<WorkspaceTools>()
     .WithTools<FileTools>()
     .WithTools<GitTools>()
-    .WithTools<ShellTools>();
+    .WithTools<ShellTools>()
+    .WithTools<HistoryTools>()
+    .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var tool = context.Params?.Name ?? "unknown";
+
+        try
+        {
+            var result = await next(context, cancellationToken);
+            stopwatch.Stop();
+            await historyStore.RecordAsync(
+                tool,
+                context.Params?.Arguments,
+                result.IsError != true,
+                stopwatch.ElapsedMilliseconds,
+                result.IsError == true ? "Tool returned an error result" : null,
+                CancellationToken.None);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await historyStore.RecordAsync(
+                tool,
+                context.Params?.Arguments,
+                false,
+                stopwatch.ElapsedMilliseconds,
+                ex.Message,
+                CancellationToken.None);
+            throw;
+        }
+    }));
 
 var app = builder.Build();
 
@@ -40,7 +85,8 @@ app.MapGet("/", () => Results.Ok(new
 {
     name = "LocalCodingMcp",
     endpoint = "/mcp",
-    allowed_roots = allowedRoots
+    allowed_roots = allowedRoots,
+    execution_history = historyPath
 }));
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
