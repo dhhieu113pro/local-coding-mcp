@@ -1,0 +1,108 @@
+name: Release ZIP
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PACKAGE_NAME: local-coding-mcp-termux-aarch64.zip
+
+jobs:
+  package:
+    name: Publish and package for TermuxHost
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore LocalCodingMcp/LocalCodingMcp.csproj
+
+      - name: Publish framework-dependent app
+        run: |
+          rm -rf dist
+          mkdir -p dist/publish
+          dotnet publish LocalCodingMcp/LocalCodingMcp.csproj \
+            -c Release \
+            --no-restore \
+            --self-contained false \
+            -o dist/publish
+
+      - name: Verify published files
+        run: |
+          test -f dist/publish/LocalCodingMcp.dll
+          test -f dist/publish/LocalCodingMcp.runtimeconfig.json
+          dotnet --info
+
+      - name: Smoke test published app
+        run: |
+          mkdir -p "$RUNNER_TEMP/mcp-workspace"
+          AllowedRoots__0="$RUNNER_TEMP/mcp-workspace" \
+          ASPNETCORE_URLS=http://127.0.0.1:5000 \
+          dotnet dist/publish/LocalCodingMcp.dll > "$RUNNER_TEMP/local-coding-mcp.log" 2>&1 &
+          APP_PID=$!
+
+          cleanup() {
+            kill "$APP_PID" 2>/dev/null || true
+            wait "$APP_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat "$RUNNER_TEMP/local-coding-mcp.log"
+          exit 1
+
+      - name: Create ZIP
+        run: |
+          cd dist/publish
+          zip -q -r "../${PACKAGE_NAME}" .
+          cd ../..
+          test -s "dist/${PACKAGE_NAME}"
+          sha256sum "dist/${PACKAGE_NAME}" | tee "dist/${PACKAGE_NAME}.sha256"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-coding-mcp-termux-aarch64
+          path: |
+            dist/${{ env.PACKAGE_NAME }}
+            dist/${{ env.PACKAGE_NAME }}.sha256
+          retention-days: 30
+
+      - name: Attach ZIP to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "dist/${PACKAGE_NAME}" \
+              "dist/${PACKAGE_NAME}.sha256" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "dist/${PACKAGE_NAME}" \
+              "dist/${PACKAGE_NAME}.sha256" \
+              --verify-tag \
+              --generate-notes \
+              --title "$GITHUB_REF_NAME"
+          fi
