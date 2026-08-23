@@ -95,7 +95,7 @@ ngrok http 5000
 # or: cloudflared tunnel --url http://localhost:5000
 ```
 
-Always call `OpenWorkspace` first with a path under allowed roots (in Docker: `/workspace/...`).
+For coding, debugging, design, planning, or review work, the MCP server instructions tell clients to call `LoadEnabledSkills` before other LocalCodingMcp tools. Then call `OpenWorkspace` with a path under allowed roots (in Docker: `/workspace/...`).
 
 ---
 
@@ -151,9 +151,9 @@ Skills live under `Skills:Directory` (`data/skills` by default). Each skill is s
 
 | Tool | Purpose |
 |------|---------|
+| `LoadEnabledSkills` | Load complete content for active skills before coding/debugging/design/planning/review work |
 | `ListSkills` | List all skills with `enabled`, `built_in`, source, and license metadata |
 | `GetSkill` | Read one complete `SKILL.md` and its state |
-| `GetEnabledSkills` | Return complete content for active skills only |
 | `SetSkillEnabled` | Enable/disable a skill without deleting it |
 | `CreateSkill` | Create an enabled custom skill |
 | `UpdateSkill` | Replace an existing `SKILL.md` |
@@ -171,6 +171,8 @@ Example:
 ```json
 { "name": "ponytail", "enabled": true }
 ```
+
+The server advertises MCP initialization instructions requiring `LoadEnabledSkills` before coding, debugging, design, planning, or review work, requiring relevant enabled skills to be applied, and giving `superpowers` process-selection rules priority when enabled. Whether a host/model follows those instructions still depends on the MCP client.
 
 Existing pre-metadata skills remain enabled by default for backward compatibility. Toggle state survives restarts.
 

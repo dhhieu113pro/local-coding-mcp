@@ -17,7 +17,7 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 1. **Your PC** — mount a folder (e.g. `D:/wslc/workspaces`) into the container as `/workspace`
 2. **Docker** — LocalCoding MCP listens on `:5000/mcp` with path sandbox + tools
 3. **ngrok** — public HTTPS URL so remote clients can reach you
-4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`, then `OpenWorkspace`
+4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`; for coding work the MCP instructions tell the client to call `LoadEnabledSkills` before other LocalCoding tools, then `OpenWorkspace`
 
 | | |
 |---|---|
@@ -48,7 +48,7 @@ docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat → `OpenWorkspace` with `/workspace/...`.
+ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. For coding/debugging/design/planning/review tasks, the server advertises instructions to call `LoadEnabledSkills` before other LocalCoding tools; then use `OpenWorkspace` with `/workspace/...`.
 
 ### TermuxHost release ZIP
 
@@ -79,6 +79,7 @@ Network: **`mcp-net`**. Secrets: **`.env`** (see `.env.example`).
 ## Typical tool flow
 
 ```text
+LoadEnabledSkills
 OpenWorkspace(path)  →  workspace_id
 ListDirectory / ReadFile / SearchFiles
 WriteFile / WriteBinaryFile / ApplyPatch
@@ -87,7 +88,7 @@ GitStatus / GitDiff / GitLog
 
 ListSkills
 SetSkillEnabled("ponytail", true)
-GetEnabledSkills
+LoadEnabledSkills
 CreateSkill(name, content)
 GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 ```
@@ -98,6 +99,7 @@ GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 
 | Tool | What it does |
 |------|----------------|
+| **LoadEnabledSkills** | Load complete content for active skills before coding/debugging/design/planning/review work |
 | **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show allowed roots |
@@ -115,7 +117,6 @@ GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 | **RunCommand** | Shell in workspace |
 | **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
 | **ListSkills** | List skills with enabled/built-in state and attribution |
-| **GetEnabledSkills** | Return complete content for enabled skills only |
 | **SetSkillEnabled** | Persistently enable/disable any skill |
 | **GetSkill** | Read complete `SKILL.md` content and state |
 | **CreateSkill** | Create an enabled custom `<skills>/<name>/SKILL.md` |
@@ -141,6 +142,8 @@ Enable one without deleting or rewriting it:
 SetSkillEnabled(name: "caveman", enabled: true)
 SetSkillEnabled(name: "caveman", enabled: false)
 ```
+
+The server includes MCP initialization instructions telling clients to call `LoadEnabledSkills` before coding, debugging, design, planning, or review work, apply every relevant enabled skill, and follow `superpowers` process-selection rules first when that skill is enabled. Client/model compliance with server instructions still depends on the MCP host.
 
 Enable state is stored in `<skill>/.skill.json`, so it survives process, Docker, and Termux restarts. Existing skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
 

@@ -53,11 +53,11 @@ public class SkillToolsTests : IDisposable
         Assert.False(disabled.RootElement.GetProperty("enabled").GetBoolean());
         Assert.False(disabled.RootElement.GetProperty("built_in").GetBoolean());
 
-        using var enabledSkillsEmpty = JsonDocument.Parse(_tools.GetEnabledSkills());
+        using var enabledSkillsEmpty = JsonDocument.Parse(_tools.LoadEnabledSkills());
         Assert.Empty(enabledSkillsEmpty.RootElement.EnumerateArray());
 
         _tools.SetSkillEnabled("review", true);
-        using var enabledSkills = JsonDocument.Parse(_tools.GetEnabledSkills());
+        using var enabledSkills = JsonDocument.Parse(_tools.LoadEnabledSkills());
         var enabledItem = Assert.Single(enabledSkills.RootElement.EnumerateArray());
         Assert.Equal("review", enabledItem.GetProperty("name").GetString());
         Assert.Equal("# Review", enabledItem.GetProperty("content").GetString());
@@ -94,7 +94,7 @@ public class SkillToolsTests : IDisposable
             Assert.Contains("JuliusBrussee/caveman", caveman.GetProperty("source_url").GetString());
 
             tools.SetSkillEnabled("caveman", true);
-            using var enabled = JsonDocument.Parse(tools.GetEnabledSkills());
+            using var enabled = JsonDocument.Parse(tools.LoadEnabledSkills());
             var active = Assert.Single(enabled.RootElement.EnumerateArray());
             Assert.Equal("caveman", active.GetProperty("name").GetString());
             Assert.True(active.GetProperty("built_in").GetBoolean());
