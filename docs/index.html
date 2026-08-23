@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>LocalCodingMcp — Give your AI tools. Keep your code local.</title>
+<meta name="description" content="Secure local coding MCP server in C# / .NET 10 for ChatGPT, Grok, and other MCP clients — files, search, git, shell, execution history, and reusable skills behind a path sandbox.">
+<script>(()=>{const t=localStorage.getItem('site-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t})();</script>
+<style>
+/* Hallmark · macrostructure: Map / Diagram · genre: developer-tool · theme: Local Cyan
+ * pre-emit critique: P5 H5 E5 S5 R5 V5
+ */
+:root{
+  --color-bg:#f5f7fb;
+  --color-surface:#ffffff;
+  --color-surface-soft:#edf4ff;
+  --color-surface-quiet:#f8fafc;
+  --color-text:#101828;
+  --color-muted:#5d6677;
+  --color-line:#ccd7e8;
+  --color-accent:#136ef1;
+  --color-accent-strong:#064fc4;
+  --color-accent-soft:#dcecff;
+  --color-map-node:#0b1838;
+  --color-map-text:#f7fbff;
+  --color-focus:#0b78ff;
+  --color-success:#167f5a;
+  --color-shadow:rgba(17,36,72,.10);
+  --font-display:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;
+  --max:1180px;
+  --radius:20px;
+  --radius-small:11px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --color-bg:#07101f;
+  --color-surface:#0c1729;
+  --color-surface-soft:#10233f;
+  --color-surface-quiet:#0a1424;
+  --color-text:#eef6ff;
+  --color-muted:#9fb0c8;
+  --color-line:#263d5c;
+  --color-accent:#5eb8ff;
+  --color-accent-strong:#92d0ff;
+  --color-accent-soft:#102a4f;
+  --color-map-node:#e8f4ff;
+  --color-map-text:#081223;
+  --color-focus:#6cc4ff;
+  --color-success:#61d6a7;
+  --color-shadow:rgba(0,0,0,.28);
+}}
+html[data-theme="light"]{
+  --color-bg:#f5f7fb;--color-surface:#ffffff;--color-surface-soft:#edf4ff;--color-surface-quiet:#f8fafc;--color-text:#101828;--color-muted:#5d6677;--color-line:#ccd7e8;--color-accent:#136ef1;--color-accent-strong:#064fc4;--color-accent-soft:#dcecff;--color-map-node:#0b1838;--color-map-text:#f7fbff;--color-focus:#0b78ff;--color-success:#167f5a;--color-shadow:rgba(17,36,72,.10);color-scheme:light
+}
+html[data-theme="dark"]{
+  --color-bg:#07101f;--color-surface:#0c1729;--color-surface-soft:#10233f;--color-surface-quiet:#0a1424;--color-text:#eef6ff;--color-muted:#9fb0c8;--color-line:#263d5c;--color-accent:#5eb8ff;--color-accent-strong:#92d0ff;--color-accent-soft:#102a4f;--color-map-node:#e8f4ff;--color-map-text:#081223;--color-focus:#6cc4ff;--color-success:#61d6a7;--color-shadow:rgba(0,0,0,.28);color-scheme:dark
+}
+*{box-sizing:border-box}html,body{margin:0;overflow-x:clip}html{scroll-behavior:smooth}body{background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);line-height:1.55}a{color:inherit;text-decoration:none}button{font:inherit}code,pre{font-family:var(--font-mono)}img{max-width:100%}.wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
+.site-header{position:relative;z-index:10;border-bottom:1px solid var(--color-line);background:var(--color-bg)}.nav{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:22px}.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:760;letter-spacing:-.03em;white-space:nowrap}.brand img{width:30px;height:30px;border-radius:8px}.nav-links{display:flex;align-items:center;gap:18px}.nav-link{font-size:13px;color:var(--color-muted);font-weight:650;white-space:nowrap}.nav-link:hover{color:var(--color-text)}.theme-toggle{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--color-line);border-radius:999px;background:var(--color-surface);color:var(--color-text);cursor:pointer;box-shadow:0 1px 2px var(--color-shadow)}.theme-toggle:hover{background:var(--color-surface-soft)}.theme-icon{display:none;width:18px;height:18px}.theme-toggle[data-mode="auto"] [data-theme-icon="auto"],.theme-toggle[data-mode="light"] [data-theme-icon="light"],.theme-toggle[data-mode="dark"] [data-theme-icon="dark"]{display:block}.theme-icon svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+a:focus-visible,button:focus-visible{outline:3px solid var(--color-focus);outline-offset:3px}
+.hero{padding:76px 0 74px}.hero-top{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);gap:58px;align-items:end}.eyebrow,.section-label,.node-kicker,.tool-index,.flow-label,.guardrail-name,.install-label{font-family:var(--font-mono);font-size:11px;line-height:1.25;letter-spacing:.09em;text-transform:uppercase}.eyebrow,.section-label,.tool-index,.flow-label,.guardrail-name,.install-label{color:var(--color-muted)}.hero h1,.section-title{overflow-wrap:anywhere;min-width:0;font-style:normal}.hero h1{margin:16px 0 0;max-width:900px;font-family:var(--font-display);font-size:clamp(54px,7.6vw,102px);font-weight:720;line-height:.91;letter-spacing:-.068em}.hero-aside{border-left:1px solid var(--color-line);padding-left:26px}.hero-aside p{margin:0;color:var(--color-muted);font-size:17px}.hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.action{display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:0 15px;border:1px solid var(--color-line);border-radius:var(--radius-small);background:var(--color-surface);font-weight:700;font-size:13px;white-space:nowrap}.action--primary{background:var(--color-text);border-color:var(--color-text);color:var(--color-bg)}.action:hover{transform:translateY(-1px)}
+.map-shell{margin-top:58px;border:1px solid var(--color-line);border-radius:var(--radius);background:var(--color-surface);box-shadow:0 24px 70px var(--color-shadow);overflow:clip}.map-orientation{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px;border-bottom:1px solid var(--color-line);color:var(--color-muted);font-size:12px}.map-orientation strong{color:var(--color-text);font-weight:700}.map-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;position:relative}.map-node{position:relative;min-width:0;min-height:236px;padding:28px 26px 26px;border-right:1px solid var(--color-line);display:flex;flex-direction:column;justify-content:space-between}.map-node:last-child{border-right:0}.map-node::after{content:"→";position:absolute;right:-17px;top:50%;z-index:2;width:34px;height:34px;display:grid;place-items:center;transform:translateY(-50%);border:1px solid var(--color-line);border-radius:999px;background:var(--color-surface);color:var(--color-accent);font-family:var(--font-mono);font-weight:800}.map-node:last-child::after{display:none}.node-kicker{color:var(--color-accent)}.map-node h2{margin:12px 0 0;font-family:var(--font-display);font-size:clamp(23px,2.6vw,34px);line-height:1;letter-spacing:-.045em;font-style:normal}.map-node p{margin:18px 0 0;color:var(--color-muted);font-size:14px}.node-code{display:inline-flex;align-self:flex-start;margin-top:28px;padding:7px 9px;border-radius:8px;background:var(--color-surface-soft);color:var(--color-accent-strong);font:600 11px/1.2 var(--font-mono);white-space:nowrap}.map-node--core{background:var(--color-map-node);color:var(--color-map-text)}.map-node--core .node-kicker,.map-node--core p{color:var(--color-map-text)}.map-node--core .node-code{background:var(--color-accent);color:var(--color-map-text)}.map-legend{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;padding:18px 22px;border-top:1px solid var(--color-line);font-size:12px;color:var(--color-muted)}.legend-status{display:flex;align-items:center;gap:8px;white-space:nowrap}.legend-dot{width:8px;height:8px;border-radius:999px;background:var(--color-success)}
+.section{padding:76px 0;border-top:1px solid var(--color-line)}.section-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.48fr);gap:54px;align-items:end;margin-bottom:34px}.section-title{margin:8px 0 0;font-family:var(--font-display);font-size:clamp(38px,5vw,64px);line-height:.96;letter-spacing:-.055em;font-weight:710}.section-note{margin:0;color:var(--color-muted);font-size:15px}
+.tool-list{border-top:1px solid var(--color-line)}.tool-row{display:grid;grid-template-columns:70px minmax(170px,.45fr) minmax(0,1fr);gap:22px;align-items:start;padding:20px 4px;border-bottom:1px solid var(--color-line)}.tool-row dt{margin:0;font-family:var(--font-display);font-size:20px;font-weight:720;letter-spacing:-.025em}.tool-row dd{margin:0;color:var(--color-muted);font-size:14px}.tool-row:hover dt{color:var(--color-accent)}
+.skill-board{border:1px solid var(--color-line);border-radius:var(--radius);background:var(--color-surface);overflow:clip}.flow{display:grid;grid-template-columns:minmax(0,.9fr) 44px minmax(0,1.15fr) 44px minmax(0,1.25fr) 44px minmax(0,.9fr);align-items:stretch}.flow-step{min-width:0;padding:26px;display:flex;flex-direction:column;justify-content:space-between;min-height:190px}.flow-step h3{margin:10px 0 0;font-family:var(--font-display);font-size:24px;line-height:1.02;letter-spacing:-.04em;font-style:normal}.flow-step p{margin:20px 0 0;color:var(--color-muted);font-size:13px}.flow-arrow{display:grid;place-items:center;color:var(--color-accent);font-family:var(--font-mono);border-inline:1px solid var(--color-line)}.skill-names{display:flex;flex-wrap:wrap;gap:7px;margin-top:19px}.skill-chip{padding:6px 8px;border:1px solid var(--color-line);border-radius:8px;background:var(--color-surface-soft);font:600 11px/1 var(--font-mono);white-space:nowrap}.skill-footnote{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--color-line)}.skill-fact{padding:18px 22px;border-right:1px solid var(--color-line);font-size:12px;color:var(--color-muted)}.skill-fact:last-child{border-right:0}.skill-fact strong{display:block;margin-bottom:5px;color:var(--color-text);font-size:13px}
+.guardrail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--color-line);border-radius:var(--radius);overflow:clip;background:var(--color-map-node);color:var(--color-map-text)}.guardrail{min-width:0;padding:24px 26px;border-bottom:1px solid var(--color-line)}.guardrail:nth-child(odd){border-right:1px solid var(--color-line)}.guardrail:nth-last-child(-n+2){border-bottom:0}.guardrail-name{color:var(--color-accent)}.guardrail p{margin:8px 0 0;color:var(--color-map-text);font-size:14px}.guardrail code{font-size:12px}
+.install-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:18px}.command-block,.install-links{border:1px solid var(--color-line);border-radius:var(--radius);background:var(--color-surface)}.command-block{padding:24px}.command-block pre{margin:14px 0 0;overflow:auto;color:var(--color-text);font-size:13px;line-height:1.75;white-space:pre}.command-block code{font-family:var(--font-mono)}.install-links{display:flex;flex-direction:column}.install-link{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:64px;padding:0 20px;border-bottom:1px solid var(--color-line);font-weight:680;white-space:nowrap}.install-link:last-child{border-bottom:0}.install-link span{color:var(--color-muted);font:11px/1 var(--font-mono)}.install-link:hover{background:var(--color-surface-soft)}
+footer{border-top:1px solid var(--color-line);padding:28px 0 36px;color:var(--color-muted);font-size:12px}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer-meta{display:flex;gap:18px;flex-wrap:wrap}.footer-row a{text-decoration:underline;text-underline-offset:3px}
+@media(max-width:900px){.hero-top,.section-head{grid-template-columns:1fr;gap:28px}.hero-aside{border-left:0;border-top:1px solid var(--color-line);padding:20px 0 0}.flow{grid-template-columns:1fr}.flow-arrow{min-height:42px;border-inline:0;border-block:1px solid var(--color-line)}.flow-arrow span{transform:rotate(90deg)}.skill-footnote{grid-template-columns:1fr}.skill-fact{border-right:0;border-bottom:1px solid var(--color-line)}.skill-fact:last-child{border-bottom:0}.install-grid{grid-template-columns:1fr}}
+@media(max-width:720px){.wrap{width:min(var(--max),calc(100% - 28px))}.nav-link--tools{display:none}.hero{padding:54px 0}.hero h1{font-size:clamp(48px,14vw,72px)}.map-grid{grid-template-columns:minmax(0,1fr)}.map-node{min-height:190px;border-right:0;border-bottom:1px solid var(--color-line)}.map-node:last-child{border-bottom:0}.map-node::after{right:50%;top:auto;bottom:-17px;transform:translateX(50%) rotate(90deg)}.map-legend{grid-template-columns:1fr}.section{padding:58px 0}.tool-row{grid-template-columns:48px minmax(0,1fr);gap:14px}.tool-row dd{grid-column:2}.guardrail-grid{grid-template-columns:1fr}.guardrail,.guardrail:nth-child(odd),.guardrail:nth-last-child(-n+2){border-right:0;border-bottom:1px solid var(--color-line)}.guardrail:last-child{border-bottom:0}}
+@media(max-width:414px){.nav-link--skills{display:none}.brand span{font-size:14px}.hero-actions{gap:8px}.action{padding-inline:12px}.map-orientation{align-items:flex-start;flex-direction:column}.install-link{padding-inline:16px}.command-block{padding:20px 16px}}
+@media(max-width:360px){.nav-link--github{display:none}.brand img{width:28px;height:28px}.hero h1{font-size:46px}.action{font-size:12px;padding-inline:10px}.tool-row{grid-template-columns:40px minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition-duration:.01ms!important;animation-duration:.01ms!important}.action:hover{transform:none}}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap nav">
+    <a class="brand" href="./" aria-label="LocalCodingMcp home"><img src="./logo.svg" alt=""><span>LocalCodingMcp</span></a>
+    <nav class="nav-links" aria-label="Primary">
+      <a class="nav-link nav-link--tools" href="#tools">Tools</a>
+      <a class="nav-link nav-link--skills" href="#skills">Skills</a>
+      <a class="nav-link nav-link--github" href="https://github.com/dhhieu113pro/local-coding-mcp">GitHub ↗</a>
+      <button class="theme-toggle" id="theme-toggle" type="button" data-mode="auto" aria-label="Theme: System. Click to switch to Light." title="Theme: System">
+        <span class="theme-icon" data-theme-icon="auto" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+        <span class="theme-icon" data-theme-icon="light" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg></span>
+        <span class="theme-icon" data-theme-icon="dark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.2 15.3A8.5 8.5 0 0 1 8.7 3.8 8.5 8.5 0 1 0 20.2 15.3Z"/></svg></span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+  <section class="hero wrap" id="how-it-works">
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">C# · .NET 10 · Model Context Protocol</div>
+        <h1>Give your AI tools. Keep your code local.</h1>
+      </div>
+      <div class="hero-aside">
+        <p>LocalCodingMcp gives ChatGPT, Grok, and other MCP clients controlled access to your workspace: files, search, git, shell, history, and reusable skills — behind explicit local guardrails.</p>
+        <div class="hero-actions">
+          <a class="action action--primary" href="#install">Run it locally ↓</a>
+          <a class="action" href="https://github.com/dhhieu113pro/local-coding-mcp">Source ↗</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="map-shell" aria-label="LocalCodingMcp architecture map">
+      <div class="map-orientation"><strong>Your workspace to your AI client, with the MCP boundary visible.</strong><span>No cloud code store required by LocalCodingMcp.</span></div>
+      <div class="map-grid">
+        <article class="map-node">
+          <div><div class="node-kicker">YOUR CODE</div><h2>Workspace</h2><p>A project directory under an explicitly configured allowed root.</p></div>
+          <span class="node-code">/workspace/project</span>
+        </article>
+        <article class="map-node map-node--core">
+          <div><div class="node-kicker">LOCALCODINGMCP</div><h2>Sandboxed tools</h2><p>Path checks, sensitive-file filtering, command timeout, history, and skill state.</p></div>
+          <span class="node-code">:5000/mcp</span>
+        </article>
+        <article class="map-node">
+          <div><div class="node-kicker">HTTPS</div><h2>Tunnel</h2><p>Expose the MCP endpoint through your chosen HTTPS tunnel, such as ngrok.</p></div>
+          <span class="node-code">https://…/mcp</span>
+        </article>
+        <article class="map-node">
+          <div><div class="node-kicker">AI CLIENT</div><h2>ChatGPT / Grok</h2><p>The connected model discovers MCP tools and can invoke them for your request.</p></div>
+          <span class="node-code">MCP client</span>
+        </article>
+      </div>
+      <div class="map-legend"><span>For coding work, server instructions direct the client to load enabled skills before using LocalCodingMcp coding tools.</span><span class="legend-status"><span class="legend-dot" aria-hidden="true"></span>Local-first control plane</span></div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="tools" aria-labelledby="tools-title">
+    <div class="section-head">
+      <div><div class="section-label">Tool surface</div><h2 class="section-title" id="tools-title">A small surface with real leverage.</h2></div>
+      <p class="section-note">The server exposes focused tools instead of pretending to be a full remote IDE. The client chooses what to call; the server enforces the local boundaries.</p>
+    </div>
+    <dl class="tool-list">
+      <div class="tool-row"><div class="tool-index">01</div><dt>Workspace</dt><dd>Open approved project roots and keep subsequent calls scoped to a workspace identifier.</dd></div>
+      <div class="tool-row"><div class="tool-index">02</div><dt>Files</dt><dd>List, read, write, patch, move, create, and delete files inside the sandbox.</dd></div>
+      <div class="tool-row"><div class="tool-index">03</div><dt>Search</dt><dd>Search repository text without handing the model unrestricted filesystem access.</dd></div>
+      <div class="tool-row"><div class="tool-index">04</div><dt>Git</dt><dd>Inspect status, diff, and log from the workspace the model is already operating in.</dd></div>
+      <div class="tool-row"><div class="tool-index">05</div><dt>Shell</dt><dd>Run commands with the workspace as the working directory and a configured timeout.</dd></div>
+      <div class="tool-row"><div class="tool-index">06</div><dt>History</dt><dd>Persist sanitized tool-call history so activity can be inspected without retaining sensitive arguments.</dd></div>
+      <div class="tool-row"><div class="tool-index">07</div><dt>Skills</dt><dd>Create, read, update, enable, disable, and load reusable local instructions for compatible MCP clients.</dd></div>
+    </dl>
+  </section>
+
+  <section class="section wrap" id="skills" aria-labelledby="skills-title">
+    <div class="section-head">
+      <div><div class="section-label">Skill-aware MCP</div><h2 class="section-title" id="skills-title">The workflow can arrive with the tools.</h2></div>
+      <p class="section-note">Enabled skills are persisted locally. The server advertises how they should be loaded; actual host/model compliance is not guaranteed by the server alone.</p>
+    </div>
+    <div class="skill-board">
+      <div class="flow" aria-label="Skill loading flow">
+        <article class="flow-step"><div><div class="flow-label">Request</div><h3>User asks for work</h3></div><p>Coding, debugging, design, planning, or review.</p></article>
+        <div class="flow-arrow" aria-hidden="true"><span>→</span></div>
+        <article class="flow-step"><div><div class="flow-label">Load</div><h3>LoadEnabledSkills</h3></div><p>The MCP tool returns complete content for every enabled skill.</p></article>
+        <div class="flow-arrow" aria-hidden="true"><span>→</span></div>
+        <article class="flow-step"><div><div class="flow-label">Apply</div><h3>Relevant enabled skills</h3><div class="skill-names"><span class="skill-chip">superpowers</span><span class="skill-chip">hallmark</span><span class="skill-chip">caveman</span><span class="skill-chip">ponytail</span></div></div><p>If superpowers is enabled, its process-selection rules are applied first.</p></article>
+        <div class="flow-arrow" aria-hidden="true"><span>→</span></div>
+        <article class="flow-step"><div><div class="flow-label">Act</div><h3>Coding tools</h3></div><p>Workspace, files, search, git, shell, and history remain sandboxed.</p></article>
+      </div>
+      <div class="skill-footnote">
+        <div class="skill-fact"><strong>Built-ins start disabled.</strong>Opt into the instructions you want instead of silently changing model behavior.</div>
+        <div class="skill-fact"><strong>State persists.</strong>Enable/disable metadata survives normal process, Docker, and Termux restarts when the data directory is persisted.</div>
+        <div class="skill-fact"><strong>Custom skills stay local.</strong>Each skill lives as <code>&lt;skills&gt;/&lt;name&gt;/SKILL.md</code> under the configured skills directory.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="security-title">
+    <div class="section-head">
+      <div><div class="section-label">Guardrails</div><h2 class="section-title" id="security-title">Local access, explicitly bounded.</h2></div>
+      <p class="section-note">The boundary is implemented in the server, not left as a prompt suggestion.</p>
+    </div>
+    <div class="guardrail-grid">
+      <article class="guardrail"><div class="guardrail-name">AllowedRoots</div><p>Workspace paths must stay beneath configured roots.</p></article>
+      <article class="guardrail"><div class="guardrail-name">Traversal + symlinks</div><p>Path resolution rejects traversal and symlink escape outside approved roots.</p></article>
+      <article class="guardrail"><div class="guardrail-name">Sensitive files</div><p>Configured patterns block files such as environment files, credentials, keys, and certificates.</p></article>
+      <article class="guardrail"><div class="guardrail-name">Shell timeout</div><p>Commands run in the workspace with a configurable execution timeout.</p></article>
+      <article class="guardrail"><div class="guardrail-name">Sanitized history</div><p>Persisted call history redacts sensitive argument fields and truncates oversized values.</p></article>
+      <article class="guardrail"><div class="guardrail-name">Constrained skill names</div><p>Skill names use a restricted character set and cannot escape the configured skill directory.</p></article>
+    </div>
+  </section>
+
+  <section class="section wrap" id="install" aria-labelledby="install-title">
+    <div class="section-head">
+      <div><div class="section-label">Run it</div><h2 class="section-title" id="install-title">Clone. Start. Connect.</h2></div>
+      <p class="section-note">Docker is the shortest path on a desktop. TermuxHost packaging is available for Android/ARM64 hosting.</p>
+    </div>
+    <div class="install-grid">
+      <div class="command-block">
+        <div class="install-label">Docker + ngrok</div>
+        <pre><code>git clone https://github.com/dhhieu113pro/local-coding-mcp.git
+cd local-coding-mcp
+docker compose up -d
+docker compose --profile ngrok up -d</code></pre>
+      </div>
+      <div class="install-links" aria-label="Project links">
+        <a class="install-link" href="https://github.com/dhhieu113pro/local-coding-mcp"><strong>Repository</strong><span>GitHub ↗</span></a>
+        <a class="install-link" href="https://github.com/dhhieu113pro/local-coding-mcp/releases/latest"><strong>Latest release</strong><span>ZIP ↗</span></a>
+        <a class="install-link" href="https://github.com/dhhieu113pro/local-coding-mcp/blob/main/SETUP.md"><strong>Setup guide</strong><span>SETUP.md ↗</span></a>
+        <a class="install-link" href="https://github.com/dhhieu113pro/local-coding-mcp/blob/main/TERMUXHOST.md"><strong>TermuxHost</strong><span>Android ↗</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>
+  <div class="wrap footer-row">
+    <div class="footer-meta"><span>LocalCodingMcp</span><span>C# · .NET 10</span><span>MIT</span><span>Streamable HTTP · /mcp</span></div>
+    <a href="https://dhhieu113pro.github.io/">More projects ↗</a>
+  </div>
+</footer>
+<script>
+(()=>{
+  const button=document.getElementById('theme-toggle');
+  const modes=['auto','light','dark'];
+  const labels={auto:'System',light:'Light',dark:'Dark'};
+  const stored=localStorage.getItem('site-theme');
+  let mode=stored==='light'||stored==='dark'?stored:'auto';
+  const apply=(next)=>{
+    mode=next;
+    if(mode==='auto'){
+      localStorage.removeItem('site-theme');
+      delete document.documentElement.dataset.theme;
+    }else{
+      localStorage.setItem('site-theme',mode);
+      document.documentElement.dataset.theme=mode;
+    }
+    const nextMode=modes[(modes.indexOf(mode)+1)%modes.length];
+    button.dataset.mode=mode;
+    button.title=`Theme: ${labels[mode]}`;
+    button.setAttribute('aria-label',`Theme: ${labels[mode]}. Click to switch to ${labels[nextMode]}.`);
+  };
+  button.addEventListener('click',()=>apply(modes[(modes.indexOf(mode)+1)%modes.length]));
+  apply(mode);
+})();
+</script>
+</body>
+</html>
