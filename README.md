@@ -10,7 +10,7 @@
 
 Secure local coding **MCP server** (C# / .NET 10) for **ChatGPT**, **Grok**, and other MCP clients.
 
-Open a project folder (under approved roots only), list/read/write/patch files (including binary via base64), search code, run shell commands, and inspect git — all path-sandboxed.
+Open a project folder (under approved roots only), list/read/write/patch files (including binary via base64), search code, run shell commands, inspect git, and manage reusable local skills — all path-sandboxed.
 
 ### How it works (short)
 
@@ -84,6 +84,10 @@ ListDirectory / ReadFile / SearchFiles
 WriteFile / WriteBinaryFile / ApplyPatch
 RunCommand
 GitStatus / GitDiff / GitLog
+
+ListSkills
+CreateSkill(name, content)
+GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 ```
 
 ---
@@ -108,8 +112,17 @@ GitStatus / GitDiff / GitLog
 | **GitStatus** / **GitDiff** / **GitLog** | Git inspect |
 | **RunCommand** | Shell in workspace |
 | **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
+| **ListSkills** | List reusable skills in the configured skills directory |
+| **GetSkill** | Read complete `SKILL.md` content |
+| **CreateSkill** | Create `<skills>/<name>/SKILL.md` |
+| **UpdateSkill** | Replace an existing skill's `SKILL.md` |
+| **DeleteSkill** | Delete a skill directory recursively |
 
 Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
+
+Skills are stored under `LocalCodingMcp/data/skills` by default. Override the location with
+`Skills__Directory`. Under Docker Compose, `/app/data` is already persisted by the existing
+`${MCP_HISTORY:-./history}` volume, so skills survive container restarts together with execution history.
 
 Every MCP tool call is appended to `LocalCodingMcp/data/execution-history.jsonl`. Sensitive
 arguments such as file content, base64 data, tokens, passwords, and secrets are redacted.
@@ -130,6 +143,7 @@ Docker Compose persists it on the host in `./history` (override with `MCP_HISTOR
 
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
 - Blocks path traversal, symlink escape, sensitive names
+- Skill names are restricted to letters, numbers, `.`, `_`, and `-` and cannot escape the configured skills directory
 - Do not expose 5000 / 8443 / ngrok URL without care
 
 ---
