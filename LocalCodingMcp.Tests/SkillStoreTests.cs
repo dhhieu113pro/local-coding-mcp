@@ -10,7 +10,7 @@ public class SkillStoreTests : IDisposable
     public SkillStoreTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "mcp-skills-" + Guid.NewGuid().ToString("N"));
-        _store = new SkillStore(_root);
+        _store = new SkillStore(_root, seedBuiltIns: false);
     }
 
     public void Dispose()
@@ -38,6 +38,10 @@ public class SkillStoreTests : IDisposable
 
         Assert.Equal("dotnet-review", created.Name);
         Assert.Equal("# v1", created.Content);
+        Assert.True(created.Enabled);
+        Assert.False(created.BuiltIn);
+        Assert.Null(created.SourceUrl);
+        Assert.Null(created.License);
         Assert.EndsWith(Path.Combine("dotnet-review", "SKILL.md"), created.Path);
         Assert.True(File.Exists(created.Path));
 
@@ -71,6 +75,12 @@ public class SkillStoreTests : IDisposable
     public void UpdateMissing_Throws()
     {
         Assert.Throws<KeyNotFoundException>(() => _store.Update("missing", "content"));
+    }
+
+    [Fact]
+    public void SetEnabledMissing_Throws()
+    {
+        Assert.Throws<KeyNotFoundException>(() => _store.SetEnabled("missing", true));
     }
 
     [Fact]
@@ -113,6 +123,7 @@ public class SkillStoreTests : IDisposable
         Assert.Equal("Alpha", skills[0].Name);
         Assert.Equal("zeta", skills[1].Name);
         Assert.All(skills, skill => Assert.EndsWith("SKILL.md", skill.Path));
+        Assert.All(skills, skill => Assert.True(skill.Enabled));
     }
 
     [Fact]
@@ -120,5 +131,86 @@ public class SkillStoreTests : IDisposable
     {
         Directory.Delete(_root, true);
         Assert.Empty(_store.List());
+    }
+
+    [Fact]
+    public void Toggle_PersistsAcrossStoreInstances_AndFiltersEnabledList()
+    {
+        _store.Create("one", "# one");
+        _store.Create("two", "# two");
+
+        var disabled = _store.SetEnabled("one", false);
+        Assert.False(disabled.Enabled);
+        Assert.Equal("two", Assert.Single(_store.ListEnabled()).Name);
+
+        var reopened = new SkillStore(_root, seedBuiltIns: false);
+        Assert.False(reopened.Get("one").Enabled);
+        Assert.True(reopened.Get("two").Enabled);
+
+        var enabled = reopened.SetEnabled("one", true);
+        Assert.True(enabled.Enabled);
+        Assert.Equal(2, reopened.ListEnabled().Count);
+    }
+
+    [Fact]
+    public void ExistingSkillWithoutMetadata_DefaultsToEnabledCustomSkill()
+    {
+        var directory = Path.Combine(_root, "legacy");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "SKILL.md"), "# legacy");
+
+        var skill = _store.Get("legacy");
+
+        Assert.True(skill.Enabled);
+        Assert.False(skill.BuiltIn);
+        Assert.Null(skill.SourceUrl);
+        Assert.Null(skill.License);
+    }
+
+    [Fact]
+    public void InvalidMetadata_DefaultsToEnabledCustomSkill()
+    {
+        var directory = Path.Combine(_root, "broken-meta");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "SKILL.md"), "# skill");
+        File.WriteAllText(Path.Combine(directory, ".skill.json"), "{not-json");
+
+        var skill = _store.Get("broken-meta");
+
+        Assert.True(skill.Enabled);
+        Assert.False(skill.BuiltIn);
+    }
+
+    [Fact]
+    public void BuiltIns_AreSeededDisabled_WithAttribution_AndCannotBeDeleted()
+    {
+        var builtInRoot = Path.Combine(Path.GetTempPath(), "mcp-builtins-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SkillStore(builtInRoot);
+            var skills = store.List();
+
+            Assert.Equal(new[] { "caveman", "hallmark", "ponytail", "superpowers" }, skills.Select(x => x.Name));
+            Assert.All(skills, skill => Assert.False(skill.Enabled));
+            Assert.All(skills, skill => Assert.True(skill.BuiltIn));
+            Assert.All(skills, skill => Assert.Equal("MIT", skill.License));
+            Assert.All(skills, skill => Assert.StartsWith("https://github.com/", skill.SourceUrl));
+            Assert.Empty(store.ListEnabled());
+
+            var caveman = store.Get("caveman");
+            Assert.Contains("# Caveman", caveman.Content);
+            Assert.Throws<InvalidOperationException>(() => store.Delete("caveman"));
+
+            var enabled = store.SetEnabled("hallmark", true);
+            Assert.True(enabled.Enabled);
+            Assert.Equal("hallmark", Assert.Single(store.ListEnabled()).Name);
+
+            var reopened = new SkillStore(builtInRoot);
+            Assert.True(reopened.Get("hallmark").Enabled);
+        }
+        finally
+        {
+            try { Directory.Delete(builtInRoot, true); } catch { }
+        }
     }
 }
