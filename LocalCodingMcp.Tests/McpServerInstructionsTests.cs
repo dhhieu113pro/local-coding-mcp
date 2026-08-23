@@ -1,4 +1,5 @@
 using LocalCodingMcp.Services;
+using ModelContextProtocol.Server;
 
 namespace LocalCodingMcp.Tests;
 
@@ -26,5 +27,15 @@ public class McpServerInstructionsTests
         Assert.Contains("relevant enabled skill", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("superpowers", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("first", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Apply_SetsServerInstructionsOnMcpOptions()
+    {
+        var options = new McpServerOptions();
+
+        McpServerInstructions.Apply(options);
+
+        Assert.Equal(McpServerInstructions.Text, options.ServerInstructions);
     }
 }
