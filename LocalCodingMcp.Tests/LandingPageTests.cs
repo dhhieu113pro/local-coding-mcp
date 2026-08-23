@@ -43,4 +43,17 @@ public class LandingPageTests
         Assert.DoesNotContain("font-style:italic", html.Replace(" ", string.Empty), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<iframe", html, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void ArchitectureDiagram_ShowsSkillAwareFlow()
+    {
+        var path = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "docs", "how-it-works.svg"));
+        var svg = File.ReadAllText(path);
+
+        Assert.Contains("LoadEnabledSkills", svg, StringComparison.Ordinal);
+        Assert.Contains("ChatGPT / Grok", svg, StringComparison.Ordinal);
+        Assert.Contains("AllowedRoots", svg, StringComparison.Ordinal);
+    }
 }
