@@ -45,7 +45,7 @@ builder.Services.AddSingleton(skillStore);
 
 // ── MCP Server (HTTP / Streamable HTTP) ─────────────────
 builder.Services
-    .AddMcpServer()
+    .AddMcpServer(McpServerInstructions.Apply)
     .WithHttpTransport()
     .WithTools<WorkspaceTools>()
     .WithTools<FileTools>()
