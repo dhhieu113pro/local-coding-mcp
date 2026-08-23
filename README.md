@@ -86,6 +86,8 @@ RunCommand
 GitStatus / GitDiff / GitLog
 
 ListSkills
+SetSkillEnabled("ponytail", true)
+GetEnabledSkills
 CreateSkill(name, content)
 GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 ```
@@ -112,13 +114,35 @@ GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 | **GitStatus** / **GitDiff** / **GitLog** | Git inspect |
 | **RunCommand** | Shell in workspace |
 | **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
-| **ListSkills** | List reusable skills in the configured skills directory |
-| **GetSkill** | Read complete `SKILL.md` content |
-| **CreateSkill** | Create `<skills>/<name>/SKILL.md` |
+| **ListSkills** | List skills with enabled/built-in state and attribution |
+| **GetEnabledSkills** | Return complete content for enabled skills only |
+| **SetSkillEnabled** | Persistently enable/disable any skill |
+| **GetSkill** | Read complete `SKILL.md` content and state |
+| **CreateSkill** | Create an enabled custom `<skills>/<name>/SKILL.md` |
 | **UpdateSkill** | Replace an existing skill's `SKILL.md` |
-| **DeleteSkill** | Delete a skill directory recursively |
+| **DeleteSkill** | Delete a custom skill directory recursively; built-ins must be disabled instead |
 
 Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
+
+### Built-in skills
+
+Four attributed built-in skills ship with the server and are **disabled by default**:
+
+| Skill | Purpose | Upstream |
+|------|---------|----------|
+| `caveman` | Terse, token-efficient technical responses | `JuliusBrussee/caveman` |
+| `hallmark` | Anti-template / anti-AI-slop UI design discipline | `Nutlope/hallmark` |
+| `superpowers` | Structured engineering, TDD, debugging, review and verification workflow | `tpffounder/superpowers` |
+| `ponytail` | Minimal, anti-over-engineering implementation discipline | `DietrichGebert/ponytail` |
+
+Enable one without deleting or rewriting it:
+
+```text
+SetSkillEnabled(name: "caveman", enabled: true)
+SetSkillEnabled(name: "caveman", enabled: false)
+```
+
+Enable state is stored in `<skill>/.skill.json`, so it survives process, Docker, and Termux restarts. Existing skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
 
 Skills are stored under `LocalCodingMcp/data/skills` by default. Override the location with
 `Skills__Directory`. Under Docker Compose, `/app/data` is already persisted by the existing
@@ -144,6 +168,7 @@ Docker Compose persists it on the host in `./history` (override with `MCP_HISTOR
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
 - Blocks path traversal, symlink escape, sensitive names
 - Skill names are restricted to letters, numbers, `.`, `_`, and `-` and cannot escape the configured skills directory
+- Built-in skills are immutable at the catalog level and protected from deletion; their enabled state is local and persistent
 - Do not expose 5000 / 8443 / ngrok URL without care
 
 ---
