@@ -30,8 +30,8 @@ public sealed class SkillTools
         }));
     }
 
-    [McpServerTool, Description("Return complete content for every currently enabled skill.")]
-    public string GetEnabledSkills()
+    [McpServerTool, Description("Load complete content for every enabled skill. Call this before coding, debugging, design, planning, or review work, then follow every relevant enabled skill before using other LocalCodingMcp tools.")]
+    public string LoadEnabledSkills()
     {
         return JsonSerializer.Serialize(_skills.ListEnabled().Select(skill => new
         {
