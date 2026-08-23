@@ -9,6 +9,7 @@ It lets **ChatGPT**, **Grok**, and other MCP clients:
 - Search code (regex)
 - Run shell commands (with timeout)
 - Inspect **git** status / diff / log
+- Manage reusable local skills, including built-in skill toggles
 
 All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are blocked.
 
@@ -46,6 +47,9 @@ dotnet run --project LocalCodingMcp
   ],
   "CommandTimeoutSeconds": 30,
   "MaxSearchResults": 50,
+  "Skills": {
+    "Directory": "data/skills"
+  },
   "ExecutionHistory": {
     "FilePath": "data/execution-history.jsonl",
     "MaxArgumentLength": 2000,
@@ -97,8 +101,7 @@ Always call `OpenWorkspace` first with a path under allowed roots (in Docker: `/
 
 ## Tools reference
 
-Tool names follow C# method names (MCP C# SDK default).  
-**Always call `OpenWorkspace` first** — almost every other tool needs `workspace_id`.
+Tool names follow C# method names (MCP C# SDK default).
 
 ### Workspace
 
@@ -132,13 +135,44 @@ No required params beyond empty input where applicable.
 
 ### Files
 
-`ListDirectory`, `ReadFile`, `WriteFile`, `ApplyPatch`, `SearchFiles`, `CreateDirectory`, `MoveFile`, `DeleteFile` — all take `workspace_id` and relative paths. See prior docs examples in git history or call tools from a live server.
+`ListDirectory`, `ReadFile`, `WriteFile`, `ApplyPatch`, `SearchFiles`, `CreateDirectory`, `MoveFile`, `DeleteFile` — all take `workspace_id` and relative paths.
 
 ---
 
 ### Git / Shell
 
 `GitStatus`, `GitDiff`, `GitLog`, `RunCommand` — `workspace_id` required; shell runs with timeout in workspace cwd.
+
+---
+
+### Skills
+
+Skills live under `Skills:Directory` (`data/skills` by default). Each skill is stored as `<name>/SKILL.md` with persistent state in `<name>/.skill.json`.
+
+| Tool | Purpose |
+|------|---------|
+| `ListSkills` | List all skills with `enabled`, `built_in`, source, and license metadata |
+| `GetSkill` | Read one complete `SKILL.md` and its state |
+| `GetEnabledSkills` | Return complete content for active skills only |
+| `SetSkillEnabled` | Enable/disable a skill without deleting it |
+| `CreateSkill` | Create an enabled custom skill |
+| `UpdateSkill` | Replace an existing `SKILL.md` |
+| `DeleteSkill` | Delete custom skills; built-ins must be disabled instead |
+
+Built-ins are seeded automatically and start **disabled**:
+
+- `caveman` — terse/token-efficient technical communication
+- `hallmark` — anti-template UI design discipline
+- `superpowers` — engineering workflow, testing, debugging, review, verification
+- `ponytail` — anti-over-engineering/minimal implementation discipline
+
+Example:
+
+```json
+{ "name": "ponytail", "enabled": true }
+```
+
+Existing pre-metadata skills remain enabled by default for backward compatibility. Toggle state survives restarts.
 
 ---
 
@@ -163,6 +197,8 @@ credential, and private-key fields are always replaced with `[REDACTED]`.
 | **Path sandbox** | Blocks `../`, absolute escapes, symlink escapes |
 | **Sensitive files** | Blocks `.env`, SSH keys, `*.pem` / `*.pfx`, credential JSON, … |
 | **Commands** | Timeout; cwd = workspace root |
+| **Skill names** | Restricted character set; cannot escape the configured skills directory |
+| **Built-ins** | Cannot be deleted; disable instead |
 
 ---
 
