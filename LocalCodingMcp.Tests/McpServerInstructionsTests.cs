@@ -6,11 +6,12 @@ namespace LocalCodingMcp.Tests;
 public class McpServerInstructionsTests
 {
     [Fact]
-    public void Text_RequiresLoadingSkillsBeforeCodingActions()
+    public void Text_RequiresRoutingAndSelectiveLoadingBeforeCodingActions()
     {
         var text = McpServerInstructions.Text;
 
-        Assert.Contains("LoadEnabledSkills", text, StringComparison.Ordinal);
+        Assert.Contains("route_skills", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("load_skills", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("before", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("coding", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("debugging", text, StringComparison.OrdinalIgnoreCase);
@@ -20,13 +21,15 @@ public class McpServerInstructionsTests
     }
 
     [Fact]
-    public void Text_RequiresRelevantSkillsAndSuperpowersPriority()
+    public void Text_RequiresOnlyRoutedEnabledSkillsAndSuperpowersPriority()
     {
         var text = McpServerInstructions.Text;
 
-        Assert.Contains("relevant enabled skill", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("enabled", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("recommended", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("superpowers", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("first", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("call LoadEnabledSkills before other", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
