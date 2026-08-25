@@ -25,7 +25,7 @@ public sealed class BuiltInSkillDefaultTests : IDisposable
     public void ApplyBuiltInDefault_DoesNotOverrideExplicitUserDisable()
     {
         var store = new SkillStore(_root);
-        store.SetEnabled("codebase-memory", false);
+        store.SetEnabledFromUser("codebase-memory", false);
 
         store.ApplyBuiltInDefault("codebase-memory", enabled: true);
 
@@ -36,7 +36,7 @@ public sealed class BuiltInSkillDefaultTests : IDisposable
     public void ApplyBuiltInDefault_DoesNotOverrideExplicitUserEnable()
     {
         var store = new SkillStore(_root);
-        store.SetEnabled("codebase-memory", true);
+        store.SetEnabledFromUser("codebase-memory", true);
 
         store.ApplyBuiltInDefault("codebase-memory", enabled: false);
 
@@ -44,13 +44,25 @@ public sealed class BuiltInSkillDefaultTests : IDisposable
     }
 
     [Fact]
-    public void ApplyBuiltInDefault_PersistsMigratedDefaultAcrossReopen()
+    public void ExplicitChoice_PersistsAcrossStoreInstances()
     {
         var store = new SkillStore(_root);
-        store.ApplyBuiltInDefault("codebase-memory", enabled: true);
+        store.SetEnabledFromUser("codebase-memory", false);
 
         var reopened = new SkillStore(_root);
         reopened.ApplyBuiltInDefault("codebase-memory", enabled: true);
+
+        Assert.False(reopened.Get("codebase-memory").Enabled);
+    }
+
+    [Fact]
+    public void LegacyEnabledBuiltIn_IsTreatedAsExistingUserChoice()
+    {
+        var store = new SkillStore(_root);
+        store.SetEnabled("codebase-memory", true);
+
+        var reopened = new SkillStore(_root);
+        reopened.ApplyBuiltInDefault("codebase-memory", enabled: false);
 
         Assert.True(reopened.Get("codebase-memory").Enabled);
     }
