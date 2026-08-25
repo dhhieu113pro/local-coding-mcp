@@ -3,6 +3,7 @@ using LocalCodingMcp.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace LocalCodingMcp.Hosting;
 
@@ -65,8 +66,22 @@ public static class McpServerRegistration
         services.AddSingleton(historyStore);
         services.AddSingleton(skillStore);
 
+        var informationalVersion = typeof(McpServerRegistration).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+            .Split('+', 2)[0]
+            ?? "0.0.0";
+
         var mcp = services
-            .AddMcpServer(McpServerInstructions.Apply)
+            .AddMcpServer(options =>
+            {
+                McpServerInstructions.Apply(options);
+                options.ServerInfo = new()
+                {
+                    Name = "LocalCodingMcp",
+                    Version = informationalVersion
+                };
+            })
             .WithTools<WorkspaceTools>()
             .WithTools<FileTools>()
             .WithTools<GitTools>()
