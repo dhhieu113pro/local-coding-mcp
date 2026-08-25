@@ -19,9 +19,21 @@ Codebase Memory: http://127.0.0.1:9750/mcp
 
 Codebase Memory is intentionally bound to `127.0.0.1` by default. It is not exposed through the existing ngrok service.
 
+## Enable the LocalCodingMcp skill
+
+LocalCodingMcp also ships a `codebase-memory` built-in skill, disabled by default. Enable it when your MCP client is connected to both endpoints:
+
+```text
+set_skill_enabled(name: "codebase-memory", enabled: true)
+```
+
+After that, `route_skills` can recommend it for codebase exploration, architecture, indexing, semantic discovery, dependency/caller tracing, ADR, call-path, and impact-analysis tasks. `load_skills` gives the model instructions to use Codebase Memory for structural discovery first and LocalCodingMcp for exact source reads, edits, git/shell operations, tests, and verification.
+
+The skill does not proxy or merge the two MCP transports. Your MCP host still needs both servers configured. If Codebase Memory tools are unavailable, the skill tells the model to fall back to normal LocalCodingMcp exploration instead of blocking the task.
+
 ## Architecture
 
-`DeusData/codebase-memory-mcp` speaks MCP over stdio. The sidecar image installs the pinned upstream native binary and verifies the release archive against the upstream `checksums.txt`. Supergateway then exposes that stdio server as stateful Streamable HTTP at `/mcp`.
+`DeusData/codebase-memory-mcp` speaks MCP over stdio. The sidecar image installs the pinned upstream native portable Linux binary, verifies the release archive against the upstream `checksums.txt`, and executes `codebase-memory-mcp --version` during the build to catch runtime incompatibility. Supergateway then exposes that stdio server as stateful Streamable HTTP at `/mcp`.
 
 ```text
 host workspace
