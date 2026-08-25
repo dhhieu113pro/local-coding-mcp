@@ -110,7 +110,18 @@ jobs:
             --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codebase_memory_status","arguments":{}}}' \
             http://127.0.0.1:5000/mcp
 
-          grep -q '\"available\":true' /tmp/local-status.body
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw = Path('/tmp/local-status.body').read_text()
+          data_lines = [line[6:] for line in raw.splitlines() if line.startswith('data: ')]
+          outer = json.loads(data_lines[-1] if data_lines else raw)
+          blocks = outer['result']['content']
+          text = next(block['text'] for block in blocks if block.get('type') == 'text')
+          status = json.loads(text)
+          assert status['available'] is True, status
+          PY
 
       - name: Show logs on failure
         if: failure()
