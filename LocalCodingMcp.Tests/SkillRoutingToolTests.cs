@@ -33,11 +33,15 @@ public sealed class SkillRoutingToolTests : IDisposable
         store.SetEnabled("superpowers", true);
         var tools = new SkillTools(store);
 
-        var json = InvokeString(tools, "LoadSkills", new[] { "hallmark" });
+        var json = InvokeString(tools, "LoadSkills", (object)new[] { "hallmark" });
         using var doc = JsonDocument.Parse(json);
-        var names = doc.RootElement.EnumerateArray().Select(item => item.GetProperty("name").GetString()).ToArray();
+        var names = doc.RootElement.EnumerateArray()
+            .Select(item => item.GetProperty("name").GetString())
+            .Where(name => name is not null)
+            .Cast<string>()
+            .ToArray();
 
-        Assert.Equal(["hallmark"], names);
+        Assert.Equal(new[] { "hallmark" }, names);
     }
 
     [Fact]
