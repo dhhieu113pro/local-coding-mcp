@@ -79,6 +79,7 @@ public static class McpServerRegistration
             codebaseMemoryEnabled,
             codebaseMemoryEndpoint,
             TimeSpan.FromSeconds(codebaseMemoryTimeoutSeconds));
+        var codebaseMemoryLifecycle = new CodebaseMemoryLifecycle(codebaseMemoryClient);
 
         foreach (var root in allowedRoots)
         {
@@ -94,6 +95,7 @@ public static class McpServerRegistration
         services.AddSingleton(remoteFetcher);
         services.AddSingleton(remoteSkillService);
         services.AddSingleton<ICodebaseMemoryClient>(codebaseMemoryClient);
+        services.AddSingleton(codebaseMemoryLifecycle);
 
         var informationalVersion = typeof(McpServerRegistration).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
