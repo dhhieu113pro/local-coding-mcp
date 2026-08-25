@@ -27,6 +27,9 @@ services:
       AllowedRoots__0: /workspace
       CommandTimeoutSeconds: "60"
       MaxSearchResults: "100"
+      CodebaseMemory__Enabled: ${CODEBASE_MEMORY_PROXY_ENABLED:-true}
+      CodebaseMemory__Endpoint: ${CODEBASE_MEMORY_PROXY_ENDPOINT:-http://codebase-memory:9750/mcp}
+      CodebaseMemory__ConnectionTimeoutSeconds: ${CODEBASE_MEMORY_PROXY_TIMEOUT_SECONDS:-15}
     volumes:
       - ${MCP_WORKSPACE:-./workspace}:/workspace
       - ${MCP_HISTORY:-./history}:/app/data
