@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dhhieu113pro/local-coding-mcp",
+  "title": "LocalCodingMcp",
+  "description": "Secure local coding MCP server for files, git, shell, workspaces, execution history, and reusable skills.",
+  "version": "0.0.0-placeholder",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "registryBaseUrl": "https://api.nuget.org/v3/index.json",
+      "identifier": "LocalCodingMcp.Dnx",
+      "version": "0.0.0-placeholder",
+      "runtimeHint": "dnx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/dhhieu113pro/local-coding-mcp",
+    "source": "github"
+  }
+}
