@@ -22,6 +22,7 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 | | |
 |---|---|
 | **Setup (ngrok / Windows / WSL)** | **[SETUP.md](SETUP.md)** |
+| **DNX / local stdio** | **[DNX.md](DNX.md)** |
 | **TermuxHost / Android ZIP** | **[TERMUXHOST.md](TERMUXHOST.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
@@ -31,6 +32,32 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 ---
 
 ## Quick start
+
+### Local stdio with DNX
+
+With the .NET 10 SDK installed, run the NuGet-packaged MCP server directly:
+
+```bash
+dnx LocalCodingMcp.Dnx --yes
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "local-coding": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["LocalCodingMcp.Dnx", "--yes"]
+    }
+  }
+}
+```
+
+DNX uses **stdio**. The existing web host remains the Streamable HTTP option for Docker, TermuxHost, LAN, and ngrok. See **[DNX.md](DNX.md)** for configuration and version pinning.
+
+### HTTP / ngrok
 
 Full guide: **[SETUP.md](SETUP.md)**
 
@@ -102,7 +129,7 @@ GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 | **LoadEnabledSkills** | Load complete content for active skills before coding/debugging/design/planning/review work |
 | **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
 | **ListWorkspaces** | List open workspaces |
-| **GetAllowedRoots** | Show allowed roots |
+| **GetAllowedRoots** | Show configured allowed roots |
 | **ListDirectory** | List files/dirs |
 | **ReadFile** | Read text file |
 | **WriteFile** | Create/overwrite text file |
@@ -181,6 +208,7 @@ Docker Compose persists it on the host in `./history` (override with `MCP_HISTOR
 ```bash
 dotnet test LocalCodingMcp.sln -c Release
 dotnet run --project LocalCodingMcp
+dotnet run --project LocalCodingMcp.Dnx
 ```
 
 ---
