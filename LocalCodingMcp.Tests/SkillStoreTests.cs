@@ -190,7 +190,7 @@ public class SkillStoreTests : IDisposable
             var store = new SkillStore(builtInRoot);
             var skills = store.List();
 
-            Assert.Equal(new[] { "caveman", "hallmark", "ponytail", "superpowers" }, skills.Select(x => x.Name));
+            Assert.Equal(new[] { "caveman", "codebase-memory", "hallmark", "ponytail", "superpowers" }, skills.Select(x => x.Name));
             Assert.All(skills, skill => Assert.False(skill.Enabled));
             Assert.All(skills, skill => Assert.True(skill.BuiltIn));
             Assert.All(skills, skill => Assert.Equal("MIT", skill.License));
@@ -200,6 +200,11 @@ public class SkillStoreTests : IDisposable
             var caveman = store.Get("caveman");
             Assert.Contains("# Caveman", caveman.Content);
             Assert.Throws<InvalidOperationException>(() => store.Delete("caveman"));
+
+            var codebaseMemory = store.Get("codebase-memory");
+            Assert.Contains("# Codebase Memory", codebaseMemory.Content);
+            Assert.Contains("DeusData/codebase-memory-mcp", codebaseMemory.SourceUrl);
+            Assert.Throws<InvalidOperationException>(() => store.Delete("codebase-memory"));
 
             var enabled = store.SetEnabled("hallmark", true);
             Assert.True(enabled.Enabled);
