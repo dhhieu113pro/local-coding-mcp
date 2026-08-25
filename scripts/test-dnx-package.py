@@ -158,9 +158,12 @@ def smoke_test(directory: Path, version: str) -> None:
             tool_list = wait_for(messages, 2, stderr)
             tools = tool_list.get("result", {}).get("tools", [])
             names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
-            for required_tool in {"OpenWorkspace", "ReadFile", "RunCommand", "LoadEnabledSkills"}:
+            for required_tool in {"open_workspace", "read_file", "run_command", "load_enabled_skills"}:
                 if required_tool not in names:
-                    fail(f"Packaged server did not advertise {required_tool}")
+                    fail(
+                        f"Packaged server did not advertise {required_tool}; "
+                        f"advertised tools: {', '.join(sorted(str(name) for name in names if name))}"
+                    )
         finally:
             if process.stdin is not None:
                 process.stdin.close()
