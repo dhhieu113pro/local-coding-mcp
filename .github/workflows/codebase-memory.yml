@@ -1,0 +1,84 @@
+name: Codebase Memory MCP
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "docker/codebase-memory/**"
+      - "docker-compose.yml"
+      - ".github/workflows/codebase-memory.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "docker/codebase-memory/**"
+      - "docker-compose.yml"
+      - ".github/workflows/codebase-memory.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Container MCP smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build sidecar
+        env:
+          MCP_WORKSPACE: ${{ github.workspace }}
+        run: docker compose --profile codebase-memory build codebase-memory
+
+      - name: Start sidecar
+        env:
+          MCP_WORKSPACE: ${{ github.workspace }}
+        run: docker compose --profile codebase-memory up -d codebase-memory
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:9750/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --profile codebase-memory logs codebase-memory
+          exit 1
+
+      - name: MCP initialize and tools/list
+        run: |
+          init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"local-coding-mcp-ci","version":"1.0"}}}'
+          curl -fsS -D /tmp/init.headers -o /tmp/init.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            --data "$init" \
+            http://127.0.0.1:9750/mcp
+
+          session="$(awk 'BEGIN{IGNORECASE=1} /^mcp-session-id:/ {gsub("\r", "", $2); print $2}' /tmp/init.headers | tail -n1)"
+          test -n "$session"
+          grep -Eq 'serverInfo|server_info' /tmp/init.body
+
+          curl -fsS -o /tmp/initialized.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H "Mcp-Session-Id: $session" \
+            --data '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            http://127.0.0.1:9750/mcp
+
+          curl -fsS -o /tmp/tools.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H "Mcp-Session-Id: $session" \
+            --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            http://127.0.0.1:9750/mcp
+
+          grep -q '"tools"' /tmp/tools.body
+          grep -Eq 'search|index|get_architecture' /tmp/tools.body
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose --profile codebase-memory logs --no-color codebase-memory
+
+      - name: Stop sidecar
+        if: always()
+        run: docker compose --profile codebase-memory down --remove-orphans
