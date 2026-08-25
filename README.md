@@ -119,10 +119,45 @@ set_skill_enabled("ponytail", true)
 route_skills(task)
 load_skills(["ponytail"])
 create_skill(name, content)
+install_skill(source, enabled)
+check_skill_updates(name)
+update_skill_from_source(name)
 get_skill(name) / update_skill(name, content) / delete_skill(name)
 ```
 
 `load_enabled_skills` remains available for backward compatibility when a client explicitly wants every enabled skill.
+
+---
+
+## Remote skill install and updates
+
+Install directly from an explicit HTTPS `SKILL.md` source:
+
+```text
+install_skill(
+  source: "https://github.com/owner/repo/blob/main/skills/example/SKILL.md",
+  enabled: true
+)
+```
+
+Then check and explicitly refresh it later:
+
+```text
+check_skill_updates(name: "example")
+update_skill_from_source(name: "example")
+```
+
+`CreateSkill` and `InstallSkill` are intentionally different. `CreateSkill` stores content supplied by the caller and performs no network request. `InstallSkill` fetches an explicitly supplied HTTPS URL, validates the `SKILL.md` front matter, records the original/resolved source URL and a SHA-256 content hash, then stores the skill. GitHub blob URLs are normalized to raw GitHub content URLs; raw GitHub and generic HTTPS text/Markdown URLs are also supported.
+
+Remote updates are **never automatic**. `check_skill_updates` only compares hashes; `update_skill_from_source` must be called explicitly. A downloaded skill is still only instructions and receives no extra filesystem or shell permissions beyond the existing LocalCodingMcp sandbox/tool protections.
+
+Remote fetch defaults can be configured with:
+
+```text
+Skills__Remote__MaxBytes=1048576
+Skills__Remote__TimeoutSeconds=15
+Skills__Remote__MaxRedirects=3
+```
 
 ---
 
@@ -133,6 +168,9 @@ get_skill(name) / update_skill(name, content) / delete_skill(name)
 | **RouteSkills** | Rank relevant enabled skills for a task without loading full `SKILL.md` content |
 | **LoadSkills** | Load complete content only for selected enabled skills |
 | **LoadEnabledSkills** | Backward-compatible full load of every enabled skill |
+| **InstallSkill** | Explicitly install and validate a remote HTTPS `SKILL.md`, recording provenance/hash |
+| **CheckSkillUpdates** | Compare installed remote-skill hashes with upstream without applying changes |
+| **UpdateSkillFromSource** | Explicitly refresh a remote skill while preserving enabled state |
 | **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show configured allowed roots |
@@ -149,11 +187,11 @@ get_skill(name) / update_skill(name, content) / delete_skill(name)
 | **GitStatus** / **GitDiff** / **GitLog** | Git inspect |
 | **RunCommand** | Shell in workspace |
 | **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
-| **ListSkills** | List skills with enabled/built-in state and attribution |
+| **ListSkills** | List skills with enabled/built-in state and attribution/provenance |
 | **SetSkillEnabled** | Persistently enable/disable any skill |
 | **GetSkill** | Read complete `SKILL.md` content and state |
-| **CreateSkill** | Create an enabled custom `<skills>/<name>/SKILL.md` |
-| **UpdateSkill** | Replace an existing skill's `SKILL.md` |
+| **CreateSkill** | Create an enabled custom `<skills>/<name>/SKILL.md` from caller-supplied content |
+| **UpdateSkill** | Replace an existing skill's `SKILL.md` manually |
 | **DeleteSkill** | Delete a custom skill directory recursively; built-ins must be disabled instead |
 
 Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
@@ -176,18 +214,13 @@ SetSkillEnabled(name: "caveman", enabled: true)
 SetSkillEnabled(name: "caveman", enabled: false)
 ```
 
-The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
+The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom and remotely installed skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
 
 Enable state is stored in `<skill>/.skill.json`, so it survives process, Docker, and Termux restarts. Existing skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
 
-Skills are stored under `LocalCodingMcp/data/skills` by default. Override the location with
-`Skills__Directory`. Under Docker Compose, `/app/data` is already persisted by the existing
-`${MCP_HISTORY:-./history}` volume, so skills survive container restarts together with execution history.
+Skills are stored under `LocalCodingMcp/data/skills` by default. Override the location with `Skills__Directory`. Under Docker Compose, `/app/data` is already persisted by the existing `${MCP_HISTORY:-./history}` volume, so skills survive container restarts together with execution history.
 
-Every MCP tool call is appended to `LocalCodingMcp/data/execution-history.jsonl`. Sensitive
-arguments such as file content, base64 data, tokens, passwords, and secrets are redacted.
-The log rotates at 10 MiB by default so repeated LLM calls do not grow storage without limit.
-Docker Compose persists it on the host in `./history` (override with `MCP_HISTORY`).
+Every MCP tool call is appended to `LocalCodingMcp/data/execution-history.jsonl`. Sensitive arguments such as file content, base64 data, tokens, passwords, and secrets are redacted. The log rotates at 10 MiB by default so repeated LLM calls do not grow storage without limit. Docker Compose persists it on the host in `./history` (override with `MCP_HISTORY`).
 
 ---
 
@@ -204,6 +237,8 @@ Docker Compose persists it on the host in `./history` (override with `MCP_HISTOR
 - Paths only under **AllowedRoots** (`/workspace` in Docker)
 - Blocks path traversal, symlink escape, sensitive names
 - Skill names are restricted to letters, numbers, `.`, `_`, and `-` and cannot escape the configured skills directory
+- Remote skill sources and redirects must remain HTTPS; embedded URL credentials, oversized/binary/empty responses, and malformed front matter are rejected
+- Remote installs/updates are explicit operations and do not grant skills extra tool privileges
 - Built-in skills are immutable at the catalog level and protected from deletion; their enabled state is local and persistent
 - Do not expose 5000 / 8443 / ngrok URL without care
 
