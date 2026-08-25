@@ -75,6 +75,9 @@ public static class McpServerRegistration
         {
             throw new InvalidOperationException("CodebaseMemory:Endpoint must be an absolute HTTP or HTTPS URI.");
         }
+
+        skillStore.ApplyBuiltInDefault("codebase-memory", codebaseMemoryEnabled);
+
         var codebaseMemoryClient = new CodebaseMemoryClient(
             codebaseMemoryEnabled,
             codebaseMemoryEndpoint,
