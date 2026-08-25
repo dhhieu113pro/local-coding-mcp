@@ -22,6 +22,18 @@ public sealed class BuiltInSkillDefaultTests : IDisposable
     }
 
     [Fact]
+    public void ApplyBuiltInDefault_FollowsSystemDefaultAcrossRestart()
+    {
+        var store = new SkillStore(_root);
+        store.ApplyBuiltInDefault("codebase-memory", enabled: true);
+
+        var reopened = new SkillStore(_root);
+        reopened.ApplyBuiltInDefault("codebase-memory", enabled: false);
+
+        Assert.False(reopened.Get("codebase-memory").Enabled);
+    }
+
+    [Fact]
     public void ApplyBuiltInDefault_DoesNotOverrideExplicitUserDisable()
     {
         var store = new SkillStore(_root);
