@@ -42,13 +42,15 @@ public class ToolCoverageTests : IDisposable
         _runner = new CommandRunner(15);
 
         var config = TestHelpers.Config(50);
+        var codebaseMemoryClient = new CodebaseMemoryClient(false, null, TimeSpan.FromSeconds(1));
+        var codebaseMemoryLifecycle = new CodebaseMemoryLifecycle(codebaseMemoryClient);
 
-        _workspaceTools = new WorkspaceTools(_workspaces, _sandbox);
+        _workspaceTools = new WorkspaceTools(_workspaces, _sandbox, codebaseMemoryLifecycle);
         _fileTools = new FileTools(_workspaces, _sandbox, _filter, config);
         _gitTools = new GitTools(_workspaces, _runner);
         _shellTools = new ShellTools(_workspaces, _runner);
 
-        var openResult = _workspaceTools.OpenWorkspace(_root);
+        var openResult = _workspaceTools.OpenWorkspace(_root).GetAwaiter().GetResult();
         using var doc = JsonDocument.Parse(openResult);
         _workspaceId = doc.RootElement.GetProperty("workspace_id").GetString()!;
     }
@@ -97,13 +99,13 @@ public class ToolCoverageTests : IDisposable
     }
 
     [Fact]
-    public void OpenWorkspace_OutsideAllowed_Throws()
+    public async Task OpenWorkspace_OutsideAllowed_Throws()
     {
-        Assert.ThrowsAny<Exception>(() =>
+        await Assert.ThrowsAnyAsync<Exception>(() =>
             _workspaceTools.OpenWorkspace("/etc"));
     }
 
-    // ── File tools ───────────────────────────────────────
+    // ── File tools ────────────────────────────────────────
 
     [Fact]
     public void ListDirectory_Root_Works()
@@ -240,7 +242,7 @@ public class ToolCoverageTests : IDisposable
             _fileTools.ReadFile("../outside.txt", _workspaceId));
     }
 
-    // ── Git tools ────────────────────────────────────────
+    // ── Git tools ─────────────────────────────────────────
 
     [Fact]
     public async Task GitStatus_Works()
@@ -267,7 +269,7 @@ public class ToolCoverageTests : IDisposable
         Assert.Equal(0, doc.RootElement.GetProperty("exit_code").GetInt32());
     }
 
-    // ── Shell tools ──────────────────────────────────────
+    // ── Shell tools ───────────────────────────────────────
 
     [Fact]
     public async Task RunCommand_Echo_Works()

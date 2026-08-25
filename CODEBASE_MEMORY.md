@@ -18,6 +18,23 @@ http://127.0.0.1:5000/mcp
 
 Codebase Memory remains internal to the Compose network at `http://codebase-memory:9750/mcp`. Port 9750 is also loopback-bound for local diagnostics, but ChatGPT/Codex/Grok do not need it configured separately.
 
+## Workspace lifecycle
+
+`open_workspace` now coordinates the Codebase Memory index automatically when the sidecar is available:
+
+- If the workspace already has a healthy index, LocalCodingMcp reuses it.
+- If the workspace is not indexed yet, LocalCodingMcp calls `index_repository` once for that workspace.
+- If Codebase Memory reports the index as stale/outdated, LocalCodingMcp reports `codebase_memory.state = "stale"` and does **not** silently rebuild it.
+- If the sidecar is unavailable or disabled, opening the workspace still succeeds and reports `codebase_memory.state = "unavailable"`.
+
+For a stale index or a deliberate refresh after a large external change, call:
+
+```text
+refresh_codebase_memory_workspace(workspace_id)
+```
+
+This keeps normal workspace opening fast while making first-use indexing automatic and refreshes explicit.
+
 ## Proxy tools
 
 LocalCodingMcp exposes three tools for the sidecar:
