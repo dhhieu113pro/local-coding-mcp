@@ -17,7 +17,7 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 1. **Your PC** — mount a folder (e.g. `D:/wslc/workspaces`) into the container as `/workspace`
 2. **Docker** — LocalCoding MCP listens on `:5000/mcp` with path sandbox + tools
 3. **ngrok** — public HTTPS URL so remote clients can reach you
-4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`; for coding work the MCP instructions tell the client to call `LoadEnabledSkills` before other LocalCoding tools, then `OpenWorkspace`
+4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`; for coding work the MCP instructions tell the client to call `route_skills`, load only the recommended skills with `load_skills`, then use the coding tools
 
 | | |
 |---|---|
@@ -75,7 +75,7 @@ docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. For coding/debugging/design/planning/review tasks, the server advertises instructions to call `LoadEnabledSkills` before other LocalCoding tools; then use `OpenWorkspace` with `/workspace/...`.
+ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. For coding/debugging/design/planning/review tasks, the server advertises instructions to call `route_skills` first and `load_skills` only for the recommendations; then use `open_workspace` with `/workspace/...`.
 
 ### TermuxHost release ZIP
 
@@ -106,19 +106,23 @@ Network: **`mcp-net`**. Secrets: **`.env`** (see `.env.example`).
 ## Typical tool flow
 
 ```text
-LoadEnabledSkills
-OpenWorkspace(path)  →  workspace_id
-ListDirectory / ReadFile / SearchFiles
-WriteFile / WriteBinaryFile / ApplyPatch
-RunCommand
-GitStatus / GitDiff / GitLog
+route_skills(task)
+load_skills([recommended skill names])
+open_workspace(path)  →  workspace_id
+list_directory / read_file / search_files
+write_file / write_binary_file / apply_patch
+run_command
+git_status / git_diff / git_log
 
-ListSkills
-SetSkillEnabled("ponytail", true)
-LoadEnabledSkills
-CreateSkill(name, content)
-GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
+list_skills
+set_skill_enabled("ponytail", true)
+route_skills(task)
+load_skills(["ponytail"])
+create_skill(name, content)
+get_skill(name) / update_skill(name, content) / delete_skill(name)
 ```
+
+`load_enabled_skills` remains available for backward compatibility when a client explicitly wants every enabled skill.
 
 ---
 
@@ -126,7 +130,9 @@ GetSkill(name) / UpdateSkill(name, content) / DeleteSkill(name)
 
 | Tool | What it does |
 |------|----------------|
-| **LoadEnabledSkills** | Load complete content for active skills before coding/debugging/design/planning/review work |
+| **RouteSkills** | Rank relevant enabled skills for a task without loading full `SKILL.md` content |
+| **LoadSkills** | Load complete content only for selected enabled skills |
+| **LoadEnabledSkills** | Backward-compatible full load of every enabled skill |
 | **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show configured allowed roots |
@@ -170,7 +176,7 @@ SetSkillEnabled(name: "caveman", enabled: true)
 SetSkillEnabled(name: "caveman", enabled: false)
 ```
 
-The server includes MCP initialization instructions telling clients to call `LoadEnabledSkills` before coding, debugging, design, planning, or review work, apply every relevant enabled skill, and follow `superpowers` process-selection rules first when that skill is enabled. Client/model compliance with server instructions still depends on the MCP host.
+The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
 
 Enable state is stored in `<skill>/.skill.json`, so it survives process, Docker, and Termux restarts. Existing skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
 
