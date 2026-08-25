@@ -16,7 +16,8 @@ public class WorkspaceToolsTests : IDisposable
         Directory.CreateDirectory(_root);
         _sandbox = new PathSandbox(new[] { _root });
         _ws = new WorkspaceManager(_sandbox);
-        _tools = new WorkspaceTools(_ws, _sandbox);
+        var memory = new CodebaseMemoryLifecycle(new CodebaseMemoryClient(false, null, TimeSpan.FromSeconds(1)));
+        _tools = new WorkspaceTools(_ws, _sandbox, memory);
     }
 
     public void Dispose()
@@ -25,17 +26,17 @@ public class WorkspaceToolsTests : IDisposable
     }
 
     [Fact]
-    public void OpenWorkspace_ReturnsId()
+    public async Task OpenWorkspace_ReturnsId()
     {
-        var json = _tools.OpenWorkspace(_root);
+        var json = await _tools.OpenWorkspace(_root);
         Assert.Contains("workspace_id", json);
-        Assert.Contains(_root.Replace("\\", "\\\\").Contains("\\") ? "" : _root.Split('/').Last(), json);
+        Assert.Contains("unavailable", json);
     }
 
     [Fact]
-    public void ListWorkspaces_AfterOpen()
+    public async Task ListWorkspaces_AfterOpen()
     {
-        _tools.OpenWorkspace(_root);
+        await _tools.OpenWorkspace(_root);
         var json = _tools.ListWorkspaces();
         Assert.Contains("workspace_id", json);
     }
