@@ -9,7 +9,7 @@ It lets **ChatGPT**, **Grok**, and other MCP clients:
 - Search code (regex)
 - Run shell commands (with timeout)
 - Inspect **git** status / diff / log
-- Manage reusable local skills, including built-in skill toggles
+- Manage reusable local skills, including built-in toggles, automatic routing, and explicit remote installation/update checks
 
 All paths are **sandboxed**. Sensitive files (`.env`, keys, `*.pem`, …) are blocked.
 
@@ -41,123 +41,83 @@ dotnet run --project LocalCodingMcp
 
 ```json
 {
-  "AllowedRoots": [
-    "C:\\Users\\you\\Projects",
-    "D:\\Work\\repos"
-  ],
+  "AllowedRoots": ["D:\\Work\\repos"],
   "CommandTimeoutSeconds": 30,
-  "MaxSearchResults": 50,
   "Skills": {
-    "Directory": "data/skills"
+    "Directory": "data/skills",
+    "Remote": {
+      "MaxBytes": 1048576,
+      "TimeoutSeconds": 15,
+      "MaxRedirects": 3
+    }
   },
   "ExecutionHistory": {
     "FilePath": "data/execution-history.jsonl",
     "MaxArgumentLength": 2000,
     "MaxFileSizeMb": 10
-  },
-  "BlockedFileNames": [
-    ".env",
-    "id_rsa",
-    "*.pem",
-    "*.pfx",
-    "credentials.json"
-  ]
-}
-```
-
-Linux / macOS:
-
-```json
-{
-  "AllowedRoots": [
-    "/home/you/projects",
-    "/tmp/mcp-workspace"
-  ]
+  }
 }
 ```
 
 ### Connect to ChatGPT
 
-Use **ngrok** (or another public HTTPS tunnel) and ChatGPT **Connection → URL**.
+Use **ngrok** (or another public HTTPS tunnel) and ChatGPT **Connection → URL**. See **[SETUP.md](../SETUP.md)**.
 
-See **[SETUP.md](../SETUP.md)**:
-
-```bash
-docker compose up -d
-docker compose --profile ngrok up -d
-# URL: https://xxxx.ngrok-free.app/mcp
-```
-
-Or:
-
-```bash
-ngrok http 5000
-# or: cloudflared tunnel --url http://localhost:5000
-```
-
-For coding, debugging, design, planning, or review work, the MCP server instructions tell clients to call `LoadEnabledSkills` before other LocalCodingMcp tools. Then call `OpenWorkspace` with a path under allowed roots (in Docker: `/workspace/...`).
+For coding, debugging, design, planning, or review work, the MCP server instructions tell clients to call `route_skills(task)`, then `load_skills` only for the recommendations, before using other LocalCodingMcp tools.
 
 ---
 
 ## Tools reference
 
-Tool names follow C# method names (MCP C# SDK default).
+The MCP C# SDK derives snake-case wire names from the C# methods, e.g. `RouteSkills` → `route_skills`.
 
 ### Workspace
 
-#### `OpenWorkspace`
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes | Absolute path under an allowed root |
-
-**Example input**
-
-```json
-{ "path": "/workspace/my-app" }
-```
-
-**Example output**
-
-```json
-{
-  "workspace_id": "a1b2c3d4e5f6",
-  "root": "/workspace/my-app",
-  "message": "Workspace opened. Use this workspace_id in subsequent tool calls."
-}
-```
-
-#### `ListWorkspaces` / `GetAllowedRoots`
-
-No required params beyond empty input where applicable.
-
----
+`open_workspace`, `list_workspaces`, `get_allowed_roots`.
 
 ### Files
 
-`ListDirectory`, `ReadFile`, `WriteFile`, `ApplyPatch`, `SearchFiles`, `CreateDirectory`, `MoveFile`, `DeleteFile` — all take `workspace_id` and relative paths.
-
----
+`list_directory`, `read_file`, `write_file`, `write_binary_file`, `read_binary_file`, `apply_patch`, `search_files`, `create_directory`, `move_file`, `delete_file`.
 
 ### Git / Shell
 
-`GitStatus`, `GitDiff`, `GitLog`, `RunCommand` — `workspace_id` required; shell runs with timeout in workspace cwd.
-
----
+`git_status`, `git_diff`, `git_log`, `run_command`.
 
 ### Skills
 
-Skills live under `Skills:Directory` (`data/skills` by default). Each skill is stored as `<name>/SKILL.md` with persistent state in `<name>/.skill.json`.
+Skills live under `Skills:Directory` (`data/skills` by default). Each skill is stored as `<name>/SKILL.md` with persistent state/provenance in `<name>/.skill.json`.
 
-| Tool | Purpose |
+| Wire tool | Purpose |
 |------|---------|
-| `LoadEnabledSkills` | Load complete content for active skills before coding/debugging/design/planning/review work |
-| `ListSkills` | List all skills with `enabled`, `built_in`, source, and license metadata |
-| `GetSkill` | Read one complete `SKILL.md` and its state |
-| `SetSkillEnabled` | Enable/disable a skill without deleting it |
-| `CreateSkill` | Create an enabled custom skill |
-| `UpdateSkill` | Replace an existing `SKILL.md` |
-| `DeleteSkill` | Delete custom skills; built-ins must be disabled instead |
+| `route_skills` | Rank relevant enabled skills without loading full instructions |
+| `load_skills` | Load complete content only for selected enabled skills |
+| `load_enabled_skills` | Backward-compatible full load of all enabled skills |
+| `list_skills` | List skills with enabled/built-in/source/hash metadata |
+| `get_skill` | Read one complete `SKILL.md` and its state |
+| `set_skill_enabled` | Enable/disable a skill without deleting it |
+| `create_skill` | Create a local skill from caller-supplied content; no network request |
+| `update_skill` | Manually replace an existing `SKILL.md` |
+| `install_skill` | Explicitly fetch, validate, hash, and install a remote HTTPS skill |
+| `check_skill_updates` | Compare remote skills with upstream by SHA-256 without applying updates |
+| `update_skill_from_source` | Explicitly refresh a remote skill from its recorded source |
+| `delete_skill` | Delete custom skills; built-ins must be disabled instead |
+
+Remote example:
+
+```text
+install_skill(
+  source: "https://github.com/owner/repo/blob/main/skills/example/SKILL.md",
+  enabled: true
+)
+check_skill_updates(name: "example")
+update_skill_from_source(name: "example")
+```
+
+Remote sources are HTTPS-only. GitHub blob URLs are normalized to raw content; raw GitHub and generic direct HTTPS text/Markdown URLs are accepted. The server rejects embedded credentials, non-HTTPS redirect destinations, oversized/binary/empty responses, missing required `name`/`description` front matter, and name mismatches.
+
+Provenance includes the original source URL, resolved fetch URL, SHA-256 content hash, optional ETag/Last-Modified, install/update timestamps, and optional license. Existing local `.skill.json` files remain compatible because the new fields are optional.
+
+`check_skill_updates` never mutates a skill. `update_skill_from_source` is always explicit and preserves the installed skill's enabled state. Failed fetch or validation must leave the current skill unchanged. Remote instructions do not receive additional filesystem or shell privileges.
 
 Built-ins are seeded automatically and start **disabled**:
 
@@ -166,28 +126,13 @@ Built-ins are seeded automatically and start **disabled**:
 - `superpowers` — engineering workflow, testing, debugging, review, verification
 - `ponytail` — anti-over-engineering/minimal implementation discipline
 
-Example:
-
-```json
-{ "name": "ponytail", "enabled": true }
-```
-
-The server advertises MCP initialization instructions requiring `LoadEnabledSkills` before coding, debugging, design, planning, or review work, requiring relevant enabled skills to be applied, and giving `superpowers` process-selection rules priority when enabled. Whether a host/model follows those instructions still depends on the MCP client.
-
-Existing pre-metadata skills remain enabled by default for backward compatibility. Toggle state survives restarts.
+Custom and remotely installed enabled skills automatically participate in `route_skills` through their name/front-matter `description:`.
 
 ---
 
 ### Execution history
 
-`GetExecutionHistory` returns persisted calls newest-first. Use `count` (1–500), optional
-exact `tool`, and optional `success` filters. Each entry contains its UTC timestamp, tool,
-sanitized arguments, success status, duration, and short error message.
-
-History is stored as append-only JSON Lines at `ExecutionHistory:FilePath`. When the active
-file reaches `MaxFileSizeMb`, it rotates to `.1`. Argument values longer than
-`MaxArgumentLength` are truncated; content, base64, token, password, secret, authorization,
-credential, and private-key fields are always replaced with `[REDACTED]`.
+`get_execution_history` returns persisted calls newest-first. Sensitive content/token/password/secret fields are redacted.
 
 ---
 
@@ -200,20 +145,8 @@ credential, and private-key fields are always replaced with `[REDACTED]`.
 | **Sensitive files** | Blocks `.env`, SSH keys, `*.pem` / `*.pfx`, credential JSON, … |
 | **Commands** | Timeout; cwd = workspace root |
 | **Skill names** | Restricted character set; cannot escape the configured skills directory |
-| **Built-ins** | Cannot be deleted; disable instead |
-
----
-
-## Project structure
-
-```
-LocalCodingMcp.sln
-├── LocalCodingMcp/
-├── LocalCodingMcp.Tests/
-├── docker-compose.yml
-├── SETUP.md
-└── .github/workflows/ci.yml
-```
+| **Remote skills** | HTTPS only, bounded text downloads, explicit install/update, provenance/hash persisted |
+| **Built-ins** | Cannot be deleted or remotely refreshed; disable instead |
 
 ---
 
@@ -224,23 +157,12 @@ dotnet build LocalCodingMcp.sln -c Release
 dotnet test LocalCodingMcp.sln -c Release
 ```
 
-### CI
-
-| Job | Platforms |
-|-----|-----------|
-| **Test** | ubuntu, macOS, Windows (.NET 10) |
-| **Coverage** | Linux |
-| **Docker Publish** | `ghcr.io/dhhieu113pro/local-coding-mcp` on `main` |
-
----
-
 ## Notes
 
 - ModelContextProtocol **2.2.0**
 - Streamable HTTP at `/mcp`
+- DNX package uses stdio
 - Compose profiles: default MCP, `ngrok`, `ide`, `termux`
-
----
 
 ## License
 
