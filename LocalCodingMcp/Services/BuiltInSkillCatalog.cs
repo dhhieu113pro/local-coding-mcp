@@ -149,6 +149,41 @@ public static class BuiltInSkillCatalog
             - Non-trivial logic should leave behind the smallest useful runnable check or test.
 
             Minimize what you build, not how carefully you understand the problem.
+            """),
+        new(
+            "codebase-memory",
+            "https://github.com/DeusData/codebase-memory-mcp",
+            "MIT",
+            """
+            ---
+            name: codebase-memory
+            description: Codebase exploration and architecture workflow using persistent structural memory, semantic search, call-path tracing, change detection, and impact analysis before broad file reads or edits.
+            source: https://github.com/DeusData/codebase-memory-mcp
+            license: MIT
+            ---
+
+            # Codebase Memory
+
+            Use Codebase Memory MCP as the first source of structural code intelligence when its tools are available.
+
+            ## Workflow
+
+            - For an unfamiliar repository, ensure the project is indexed before doing broad exploration.
+            - Ask for architecture/structure first when the task spans modules, services, packages, or layers.
+            - Prefer Codebase Memory search or semantic queries to opening many files speculatively.
+            - Trace call paths and references before changing shared APIs, services, data models, or cross-cutting behavior.
+            - Use impact/change analysis before edits that may affect callers or dependent modules.
+            - Use persistent architectural knowledge and ADR information when it answers the question more directly than raw file reads.
+            - After narrowing the relevant code paths, use LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
+            - If Codebase Memory MCP tools are unavailable or the repository cannot be indexed, fall back to normal LocalCodingMcp exploration rather than blocking the task.
+
+            ## Boundaries
+
+            - Treat graph/search results as navigation evidence, not a substitute for verifying the exact source before editing.
+            - Do not index unrelated directories or expose code-intelligence results outside the user's configured environment.
+            - Do not use Codebase Memory for tiny known-file edits where direct inspection is clearly cheaper.
+
+            Goal: understand the codebase shape first, then read and change only the code that matters.
             """)
     ];
 }
