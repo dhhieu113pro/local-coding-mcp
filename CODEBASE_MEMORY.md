@@ -20,7 +20,7 @@ Codebase Memory remains internal to the Compose network at `http://codebase-memo
 
 ## Workspace lifecycle
 
-`open_workspace` now coordinates the Codebase Memory index automatically when the sidecar is available:
+`open_workspace` coordinates the Codebase Memory index automatically when the sidecar is available:
 
 - If the workspace already has a healthy index, LocalCodingMcp reuses it.
 - If the workspace is not indexed yet, LocalCodingMcp calls `index_repository` once for that workspace.
@@ -35,6 +35,14 @@ refresh_codebase_memory_workspace(workspace_id)
 
 This keeps normal workspace opening fast while making first-use indexing automatic and refreshes explicit.
 
+## Skill activation
+
+When `CodebaseMemory:Enabled=true`, LocalCodingMcp automatically enables the built-in `codebase-memory` skill so `route_skills` can recommend structural discovery without a separate setup step. When the proxy is disabled, the untouched built-in remains disabled.
+
+An explicit user choice made with `set_skill_enabled` takes precedence and persists across restarts. This means a user can disable Codebase Memory routing even while the proxy remains available, or keep the skill enabled intentionally.
+
+The skill covers architecture, codebase exploration, semantic discovery, dependency/caller tracing, ADRs, call paths, and impact analysis. It uses the LocalCodingMcp proxy tools for structural discovery, then normal LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
+
 ## Proxy tools
 
 LocalCodingMcp exposes three tools for the sidecar:
@@ -45,10 +53,9 @@ codebase_memory_list_tools
 codebase_memory_call
 ```
 
-Typical flow:
+Typical flow after `open_workspace`:
 
 ```text
-codebase_memory_status()
 codebase_memory_list_tools()
 codebase_memory_call(
   tool: "get_architecture",
@@ -56,17 +63,7 @@ codebase_memory_call(
 )
 ```
 
-`codebase_memory_call` only forwards names currently advertised by the sidecar's own `tools/list` response. This prevents the generic proxy from becoming an arbitrary HTTP/RPC escape hatch.
-
-## Enable the skill
-
-The built-in `codebase-memory` skill is disabled by default:
-
-```text
-set_skill_enabled(name: "codebase-memory", enabled: true)
-```
-
-When enabled, `route_skills` can recommend it for architecture, codebase exploration, semantic discovery, indexing, dependency/caller tracing, ADRs, call paths, and impact analysis. The skill uses the LocalCodingMcp proxy tools for structural discovery, then normal LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
+Use `codebase_memory_status` for diagnostics when needed. `codebase_memory_call` only forwards names currently advertised by the sidecar's own `tools/list` response. This prevents the generic proxy from becoming an arbitrary HTTP/RPC escape hatch.
 
 If the sidecar is stopped, `codebase_memory_status` returns `available: false` instead of making the whole LocalCodingMcp server unavailable.
 
