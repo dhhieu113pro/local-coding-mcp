@@ -15,7 +15,7 @@ RUN set -eux; \
       arm64) cbm_arch=arm64 ;; \
       *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
-    asset="codebase-memory-mcp-linux-${cbm_arch}.tar.gz"; \
+    asset="codebase-memory-mcp-linux-${cbm_arch}-portable.tar.gz"; \
     base="https://github.com/DeusData/codebase-memory-mcp/releases/download/${CODEBASE_MEMORY_VERSION}"; \
     curl -fsSLo /tmp/checksums.txt "${base}/checksums.txt"; \
     curl -fsSLo "/tmp/${asset}" "${base}/${asset}"; \
@@ -28,6 +28,7 @@ RUN set -eux; \
     binary="$(find /tmp/cbm -type f -name codebase-memory-mcp -print -quit)"; \
     test -n "${binary}"; \
     install -m 0755 "${binary}" /usr/local/bin/codebase-memory-mcp; \
+    /usr/local/bin/codebase-memory-mcp --version; \
     rm -rf /tmp/cbm "/tmp/${asset}" /tmp/checksums.txt
 
 ENV CBM_CACHE_DIR=/var/lib/codebase-memory
