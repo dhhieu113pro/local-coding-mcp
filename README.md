@@ -10,14 +10,15 @@
 
 Secure local coding **MCP server** (C# / .NET 10) for **ChatGPT**, **Grok**, and other MCP clients.
 
-Open a project folder (under approved roots only), list/read/write/patch files (including binary via base64), search code, run shell commands, inspect git, and manage reusable local skills — all path-sandboxed.
+Open a project folder (under approved roots only), list/read/write/patch files (including binary via base64), search code, run shell commands, inspect git, manage reusable local skills, and optionally proxy Codebase Memory code intelligence — all through one LocalCodingMcp endpoint.
 
 ### How it works (short)
 
 1. **Your PC** — mount a folder (e.g. `D:/wslc/workspaces`) into the container as `/workspace`
 2. **Docker** — LocalCoding MCP listens on `:5000/mcp` with path sandbox + tools
-3. **ngrok** — public HTTPS URL so remote clients can reach you
-4. **ChatGPT / Grok** — connect with **URL** → `https://…/mcp`; for coding work the MCP instructions tell the client to call `route_skills`, load only the recommended skills with `load_skills`, then use the coding tools
+3. **Optional Codebase Memory** — a sidecar indexes the same workspace read-only; LocalCodingMcp proxies its MCP tools internally
+4. **ngrok** — public HTTPS URL so remote clients can reach LocalCodingMcp
+5. **ChatGPT / Grok** — connect with **one URL** → `https://…/mcp`; skill routing and Codebase Memory proxying stay behind that endpoint
 
 | | |
 |---|---|
@@ -56,7 +57,7 @@ MCP client configuration:
 }
 ```
 
-DNX uses **stdio**. The existing web host remains the Streamable HTTP option for Docker, TermuxHost, LAN, and ngrok. See **[DNX.md](DNX.md)** for configuration and version pinning.
+DNX uses **stdio**. The existing web host remains the Streamable HTTP option for Docker, TermuxHost, LAN, and ngrok. Codebase Memory proxying is disabled by default outside the supplied Compose configuration unless `CodebaseMemory__Enabled=true` and an endpoint are configured. See **[DNX.md](DNX.md)** for configuration and version pinning.
 
 ### HTTP / ngrok
 
@@ -68,7 +69,7 @@ cd local-coding-mcp
 copy .env.example .env
 # edit .env → NGROK_AUTHTOKEN, MCP_WORKSPACE=D:/wslc/workspaces
 
-docker compose up -d
+docker compose --profile codebase-memory up -d
 docker compose --profile ngrok up -d
 
 curl http://127.0.0.1:5000/health
@@ -76,7 +77,9 @@ docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. For coding/debugging/design/planning/review tasks, the server advertises instructions to call `route_skills` first and `load_skills` only for the recommendations; then use `open_workspace` with `/workspace/...`.
+ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. You do not need to configure the Codebase Memory port separately: LocalCodingMcp exposes `codebase_memory_status`, `codebase_memory_list_tools`, and `codebase_memory_call` through the same `/mcp` endpoint.
+
+For coding/debugging/design/planning/review tasks, the server advertises instructions to call `route_skills` first and `load_skills` only for the recommendations; then use `open_workspace` with `/workspace/...`.
 
 ### TermuxHost release ZIP
 
@@ -95,9 +98,9 @@ The ZIP is framework-dependent and uses the .NET 10 runtime installed by TermuxH
 
 | Service | Profile | Port | Role |
 |---------|---------|------|------|
-| `local-coding-mcp` | (default) | **5000** | MCP `/mcp` |
-| `codebase-memory` | **`codebase-memory`** | **9750** localhost | Structural code-intelligence MCP `/mcp` |
-| `ngrok` | **`ngrok`** | **4040** inspector | Public HTTPS to MCP |
+| `local-coding-mcp` | (default) | **5000** | Client-facing MCP `/mcp`; files/git/shell/skills + Codebase Memory proxy |
+| `codebase-memory` | **`codebase-memory`** | **9750** localhost | Internal structural code-intelligence MCP sidecar |
+| `ngrok` | **`ngrok`** | **4040** inspector | Public HTTPS to LocalCodingMcp only |
 | `code-server` | **`ide`** | **8443** | Browser VS Code |
 | `termux` | **`termux`** | — | Termux-like test shell |
 
@@ -116,6 +119,11 @@ write_file / write_binary_file / apply_patch
 run_command
 git_status / git_diff / git_log
 
+# Optional structural code intelligence through the same LocalCodingMcp connection
+codebase_memory_status
+codebase_memory_list_tools
+codebase_memory_call(tool, arguments_json)
+
 list_skills
 set_skill_enabled("ponytail", true)
 route_skills(task)
@@ -128,6 +136,38 @@ get_skill(name) / update_skill(name, content) / delete_skill(name)
 ```
 
 `load_enabled_skills` remains available for backward compatibility when a client explicitly wants every enabled skill.
+
+---
+
+## Codebase Memory proxy
+
+Start the optional sidecar with:
+
+```bash
+docker compose --profile codebase-memory up -d
+```
+
+LocalCodingMcp connects internally to `http://codebase-memory:9750/mcp`. Clients continue using only `http://127.0.0.1:5000/mcp` (or the existing ngrok URL).
+
+The proxy surface is intentionally small:
+
+```text
+codebase_memory_status()
+codebase_memory_list_tools()
+codebase_memory_call(tool, arguments_json)
+```
+
+`codebase_memory_call` validates the requested name against the sidecar's current `tools/list` result before forwarding it. Use `codebase_memory_list_tools` to inspect the exact upstream schema instead of guessing arguments. When the sidecar is unavailable, `codebase_memory_status` reports that state without breaking LocalCodingMcp.
+
+Configuration:
+
+```text
+CodebaseMemory__Enabled=true
+CodebaseMemory__Endpoint=http://codebase-memory:9750/mcp
+CodebaseMemory__ConnectionTimeoutSeconds=15
+```
+
+Compose maps these from `CODEBASE_MEMORY_PROXY_*` values in `.env`. See **[CODEBASE_MEMORY.md](CODEBASE_MEMORY.md)** for architecture, security, and verification details.
 
 ---
 
@@ -173,6 +213,9 @@ Skills__Remote__MaxRedirects=3
 | **InstallSkill** | Explicitly install and validate a remote HTTPS `SKILL.md`, recording provenance/hash |
 | **CheckSkillUpdates** | Compare installed remote-skill hashes with upstream without applying changes |
 | **UpdateSkillFromSource** | Explicitly refresh a remote skill while preserving enabled state |
+| **CodebaseMemoryStatus** | Report whether the optional Codebase Memory proxy is configured/reachable |
+| **CodebaseMemoryListTools** | Return the sidecar's current MCP tool catalog and input schemas |
+| **CodebaseMemoryCall** | Forward an advertised Codebase Memory tool call through LocalCodingMcp |
 | **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show configured allowed roots |
@@ -217,7 +260,7 @@ SetSkillEnabled(name: "codebase-memory", enabled: true)
 SetSkillEnabled(name: "codebase-memory", enabled: false)
 ```
 
-When `codebase-memory` is enabled, routing can select it for codebase exploration, architecture, indexing, dependency/caller tracing, ADR, and impact-analysis tasks. Its instructions prefer Codebase Memory MCP for structural discovery, then LocalCodingMcp for exact file inspection, editing, shell/git operations, tests, and verification. If the sidecar/tools are unavailable, the skill explicitly falls back to normal LocalCodingMcp exploration.
+When `codebase-memory` is enabled, routing can select it for codebase exploration, architecture, indexing, dependency/caller tracing, ADR, and impact-analysis tasks. Its instructions now use the LocalCodingMcp proxy tools (`codebase_memory_status` → `codebase_memory_list_tools` → `codebase_memory_call`) rather than requiring the MCP client to connect to a second server. After structural discovery it returns to LocalCodingMcp file/git/shell tools for exact source inspection, editing, tests, and verification. If the sidecar is unavailable, the skill explicitly falls back to normal LocalCodingMcp exploration.
 
 The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom and remotely installed skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
 
@@ -245,6 +288,7 @@ Every MCP tool call is appended to `LocalCodingMcp/data/execution-history.jsonl`
 - Remote skill sources and redirects must remain HTTPS; embedded URL credentials, oversized/binary/empty responses, and malformed front matter are rejected
 - Remote installs/updates are explicit operations and do not grant skills extra tool privileges
 - Built-in skills are immutable at the catalog level and protected from deletion; their enabled state is local and persistent
+- Codebase Memory proxy calls are limited to tool names currently advertised by the configured sidecar; the sidecar workspace is mounted read-only
 - Do not expose 5000 / 8443 / ngrok URL without care
 
 ---

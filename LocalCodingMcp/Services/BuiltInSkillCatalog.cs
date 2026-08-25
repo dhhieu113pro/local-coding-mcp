@@ -164,21 +164,24 @@ public static class BuiltInSkillCatalog
 
             # Codebase Memory
 
-            Use Codebase Memory MCP as the first source of structural code intelligence when its tools are available.
+            Use Codebase Memory as the first source of structural code intelligence when the LocalCodingMcp proxy reports it available.
 
             ## Workflow
 
-            - For an unfamiliar repository, ensure the project is indexed before doing broad exploration.
-            - Ask for architecture/structure first when the task spans modules, services, packages, or layers.
-            - Prefer Codebase Memory search or semantic queries to opening many files speculatively.
-            - Trace call paths and references before changing shared APIs, services, data models, or cross-cutting behavior.
-            - Use impact/change analysis before edits that may affect callers or dependent modules.
-            - Use persistent architectural knowledge and ADR information when it answers the question more directly than raw file reads.
-            - After narrowing the relevant code paths, use LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
-            - If Codebase Memory MCP tools are unavailable or the repository cannot be indexed, fall back to normal LocalCodingMcp exploration rather than blocking the task.
+            1. Call `codebase_memory_status` before relying on Codebase Memory.
+            2. When available, call `codebase_memory_list_tools` to inspect the current upstream tool names and schemas rather than guessing arguments.
+            3. Invoke the appropriate upstream tool through `codebase_memory_call`.
+            4. For an unfamiliar repository, ensure indexing/coverage before doing broad exploration.
+            5. Ask for architecture/structure first when the task spans modules, services, packages, or layers.
+            6. Prefer Codebase Memory search or semantic queries to opening many files speculatively.
+            7. Trace call paths and references before changing shared APIs, services, data models, or cross-cutting behavior.
+            8. Use impact/change analysis before edits that may affect callers or dependent modules.
+            9. After narrowing the relevant code paths, use LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
+            10. If the proxy is unavailable or the repository cannot be indexed, fall back to normal LocalCodingMcp exploration rather than blocking the task.
 
             ## Boundaries
 
+            - The client should need only LocalCodingMcp's MCP endpoint; do not require a second client connection to the Codebase Memory sidecar.
             - Treat graph/search results as navigation evidence, not a substitute for verifying the exact source before editing.
             - Do not index unrelated directories or expose code-intelligence results outside the user's configured environment.
             - Do not use Codebase Memory for tiny known-file edits where direct inspection is clearly cheaper.

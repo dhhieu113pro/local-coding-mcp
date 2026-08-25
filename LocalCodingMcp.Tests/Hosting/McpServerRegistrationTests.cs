@@ -31,7 +31,10 @@ public sealed class McpServerRegistrationTests
                 ["ExecutionHistory:FilePath"] = Path.Combine(root, "history.jsonl"),
                 ["Skills:Remote:MaxBytes"] = "2048",
                 ["Skills:Remote:TimeoutSeconds"] = "7",
-                ["Skills:Remote:MaxRedirects"] = "2"
+                ["Skills:Remote:MaxRedirects"] = "2",
+                ["CodebaseMemory:Enabled"] = "true",
+                ["CodebaseMemory:Endpoint"] = "http://codebase-memory:9750/mcp",
+                ["CodebaseMemory:ConnectionTimeoutSeconds"] = "3"
             }).Build();
             var services = new ServiceCollection();
 
@@ -40,6 +43,32 @@ public sealed class McpServerRegistrationTests
 
             Assert.NotNull(provider.GetService<RemoteSkillFetcher>());
             Assert.NotNull(provider.GetService<RemoteSkillService>());
+            Assert.NotNull(provider.GetService<ICodebaseMemoryClient>());
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AddLocalCodingMcp_RejectsInvalidEnabledCodebaseMemoryEndpoint()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"local-coding-registration-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Skills:Directory"] = Path.Combine(root, "skills"),
+                ["ExecutionHistory:FilePath"] = Path.Combine(root, "history.jsonl"),
+                ["CodebaseMemory:Enabled"] = "true",
+                ["CodebaseMemory:Endpoint"] = "file:///tmp/not-mcp"
+            }).Build();
+            var services = new ServiceCollection();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                services.AddLocalCodingMcp(config, root, LocalCodingMcpTransport.Http));
         }
         finally
         {

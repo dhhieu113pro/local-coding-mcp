@@ -1,6 +1,6 @@
 # Codebase Memory MCP sidecar
 
-LocalCodingMcp can run [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) as an optional Docker Compose sidecar. Both MCP servers see the same workspace, but Codebase Memory mounts it read-only.
+LocalCodingMcp can run [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) as an optional Docker Compose sidecar. Both services see the same workspace, but Codebase Memory mounts source read-only.
 
 ## Start
 
@@ -10,43 +10,69 @@ Set `MCP_WORKSPACE` in `.env`, then run:
 docker compose --profile codebase-memory up -d
 ```
 
-Endpoints:
+Your MCP client only needs LocalCodingMcp:
 
 ```text
-LocalCodingMcp:   http://127.0.0.1:5000/mcp
-Codebase Memory: http://127.0.0.1:9750/mcp
+http://127.0.0.1:5000/mcp
 ```
 
-Codebase Memory is intentionally bound to `127.0.0.1` by default. It is not exposed through the existing ngrok service.
+Codebase Memory remains internal to the Compose network at `http://codebase-memory:9750/mcp`. Port 9750 is also loopback-bound for local diagnostics, but ChatGPT/Codex/Grok do not need it configured separately.
 
-## Enable the LocalCodingMcp skill
+## Proxy tools
 
-LocalCodingMcp also ships a `codebase-memory` built-in skill, disabled by default. Enable it when your MCP client is connected to both endpoints:
+LocalCodingMcp exposes three tools for the sidecar:
+
+```text
+codebase_memory_status
+codebase_memory_list_tools
+codebase_memory_call
+```
+
+Typical flow:
+
+```text
+codebase_memory_status()
+codebase_memory_list_tools()
+codebase_memory_call(
+  tool: "get_architecture",
+  arguments_json: "{}"
+)
+```
+
+`codebase_memory_call` only forwards names currently advertised by the sidecar's own `tools/list` response. This prevents the generic proxy from becoming an arbitrary HTTP/RPC escape hatch.
+
+## Enable the skill
+
+The built-in `codebase-memory` skill is disabled by default:
 
 ```text
 set_skill_enabled(name: "codebase-memory", enabled: true)
 ```
 
-After that, `route_skills` can recommend it for codebase exploration, architecture, indexing, semantic discovery, dependency/caller tracing, ADR, call-path, and impact-analysis tasks. `load_skills` gives the model instructions to use Codebase Memory for structural discovery first and LocalCodingMcp for exact source reads, edits, git/shell operations, tests, and verification.
+When enabled, `route_skills` can recommend it for architecture, codebase exploration, semantic discovery, indexing, dependency/caller tracing, ADRs, call paths, and impact analysis. The skill uses the LocalCodingMcp proxy tools for structural discovery, then normal LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
 
-The skill does not proxy or merge the two MCP transports. Your MCP host still needs both servers configured. If Codebase Memory tools are unavailable, the skill tells the model to fall back to normal LocalCodingMcp exploration instead of blocking the task.
+If the sidecar is stopped, `codebase_memory_status` returns `available: false` instead of making the whole LocalCodingMcp server unavailable.
 
 ## Architecture
 
-`DeusData/codebase-memory-mcp` speaks MCP over stdio. The sidecar image installs the pinned upstream native portable Linux binary, verifies the release archive against the upstream `checksums.txt`, and executes `codebase-memory-mcp --version` during the build to catch runtime incompatibility. Supergateway then exposes that stdio server as stateful Streamable HTTP at `/mcp`.
-
 ```text
-host workspace
-   └── /workspace (read-only)
-          ↓
-codebase-memory-mcp (stdio)
-          ↓
-supergateway
-          ↓
-http://127.0.0.1:9750/mcp
+ChatGPT / Codex / Grok
+          |
+          | one MCP connection
+          v
+LocalCodingMcp :5000/mcp
+   | files / git / shell / skills
+   |
+   +-- internal MCP client
+          |
+          v
+codebase-memory :9750/mcp
+          |
+          v
+persistent graph/cache
 ```
 
-The graph/cache lives under `/var/lib/codebase-memory` and is persisted by `CBM_DATA` (default `./codebase-memory`).
+`DeusData/codebase-memory-mcp` speaks MCP over stdio. The sidecar image installs the pinned portable Linux binary, verifies it against upstream `checksums.txt`, and checks `codebase-memory-mcp --version` during the image build. Supergateway exposes the process as Streamable HTTP inside the Compose network.
 
 ## Configuration
 
@@ -57,31 +83,34 @@ CBM_PORT=9750
 CBM_DATA=./codebase-memory
 CBM_MEMORY_LIMIT=1g
 CBM_CPU_LIMIT=2.0
+
+CODEBASE_MEMORY_PROXY_ENABLED=true
+CODEBASE_MEMORY_PROXY_ENDPOINT=http://codebase-memory:9750/mcp
+CODEBASE_MEMORY_PROXY_TIMEOUT_SECONDS=15
 ```
 
-Override these in `.env`. The image supports Linux `amd64` and `arm64` through Docker BuildKit's `TARGETARCH`.
-
-## MCP client
-
-For a client that supports Streamable HTTP, add the Codebase Memory endpoint separately:
+For non-Compose hosting, equivalent .NET configuration keys are:
 
 ```text
-http://127.0.0.1:9750/mcp
+CodebaseMemory__Enabled=true
+CodebaseMemory__Endpoint=http://127.0.0.1:9750/mcp
+CodebaseMemory__ConnectionTimeoutSeconds=15
 ```
 
-Keep LocalCodingMcp configured at its own `/mcp` endpoint. They provide complementary tool sets: LocalCodingMcp handles sandboxed files/git/shell/skills, while Codebase Memory provides persistent structural code intelligence.
+The proxy is disabled by default outside the supplied Docker Compose configuration, so DNX/local stdio works normally without a sidecar.
 
 ## Security
 
-The workspace is mounted `:ro` in the Codebase Memory container. Its graph/cache has a separate writable mount. Port 9750 is loopback-only by default. Do not change it to `0.0.0.0` or tunnel it publicly unless you deliberately want remote access to code-intelligence results.
+The Codebase Memory workspace mount is read-only. Its graph/cache has a separate writable mount. The sidecar is not exposed through ngrok; only LocalCodingMcp's existing endpoint is public when you enable the ngrok profile.
 
-The upstream server runs locally and indexes source into its own persistent graph. Review the upstream security documentation before exposing it beyond your machine.
+Remote tool names are validated against Codebase Memory's current advertised catalog before invocation. LocalCodingMcp still owns its normal path sandbox, sensitive-file filtering, execution history, and skill controls.
 
 ## Verify
 
 ```bash
+curl http://127.0.0.1:5000/health
 curl http://127.0.0.1:9750/healthz
-docker compose --profile codebase-memory logs codebase-memory
+docker compose --profile codebase-memory logs
 ```
 
-CI builds the sidecar and performs a real MCP `initialize` followed by `tools/list` against the Streamable HTTP endpoint.
+CI builds both images, initializes both MCP servers, verifies Codebase Memory's real tool catalog, verifies that LocalCodingMcp advertises the proxy tools, and checks `codebase_memory_status` through the single LocalCodingMcp endpoint.

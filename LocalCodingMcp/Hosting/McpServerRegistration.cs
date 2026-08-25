@@ -64,6 +64,22 @@ public static class McpServerRegistration
         var remoteFetcher = new RemoteSkillFetcher(remoteHttpClient, remoteMaxBytes, remoteMaxRedirects);
         var remoteSkillService = new RemoteSkillService(skillStore, remoteFetcher);
 
+        var codebaseMemoryEnabled = configuration.GetValue("CodebaseMemory:Enabled", false);
+        var codebaseMemoryEndpointText = configuration.GetValue<string>("CodebaseMemory:Endpoint")
+            ?? "http://codebase-memory:9750/mcp";
+        var codebaseMemoryTimeoutSeconds = Math.Clamp(configuration.GetValue("CodebaseMemory:ConnectionTimeoutSeconds", 15), 1, 120);
+        Uri? codebaseMemoryEndpoint = null;
+        if (codebaseMemoryEnabled &&
+            (!Uri.TryCreate(codebaseMemoryEndpointText, UriKind.Absolute, out codebaseMemoryEndpoint) ||
+             codebaseMemoryEndpoint.Scheme is not ("http" or "https")))
+        {
+            throw new InvalidOperationException("CodebaseMemory:Endpoint must be an absolute HTTP or HTTPS URI.");
+        }
+        var codebaseMemoryClient = new CodebaseMemoryClient(
+            codebaseMemoryEnabled,
+            codebaseMemoryEndpoint,
+            TimeSpan.FromSeconds(codebaseMemoryTimeoutSeconds));
+
         foreach (var root in allowedRoots)
         {
             try { Directory.CreateDirectory(root); } catch { /* ignore */ }
@@ -77,6 +93,7 @@ public static class McpServerRegistration
         services.AddSingleton(skillStore);
         services.AddSingleton(remoteFetcher);
         services.AddSingleton(remoteSkillService);
+        services.AddSingleton<ICodebaseMemoryClient>(codebaseMemoryClient);
 
         var informationalVersion = typeof(McpServerRegistration).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -100,6 +117,7 @@ public static class McpServerRegistration
             .WithTools<ShellTools>()
             .WithTools<HistoryTools>()
             .WithTools<SkillTools>()
+            .WithTools<CodebaseMemoryTools>()
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
             {
                 var stopwatch = Stopwatch.StartNew();

@@ -6,12 +6,18 @@ on:
     paths:
       - "docker/codebase-memory/**"
       - "docker-compose.yml"
+      - "LocalCodingMcp/Services/CodebaseMemoryClient.cs"
+      - "LocalCodingMcp/Tools/CodebaseMemoryTools.cs"
+      - "LocalCodingMcp/Hosting/McpServerRegistration.cs"
       - ".github/workflows/codebase-memory.yml"
   push:
     branches: [main, master]
     paths:
       - "docker/codebase-memory/**"
       - "docker-compose.yml"
+      - "LocalCodingMcp/Services/CodebaseMemoryClient.cs"
+      - "LocalCodingMcp/Tools/CodebaseMemoryTools.cs"
+      - "LocalCodingMcp/Hosting/McpServerRegistration.cs"
       - ".github/workflows/codebase-memory.yml"
   workflow_dispatch:
 
@@ -24,61 +30,103 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build LocalCodingMcp image
+        run: docker build -t ghcr.io/dhhieu113pro/local-coding-mcp:latest .
+
       - name: Build sidecar
         env:
           MCP_WORKSPACE: ${{ github.workspace }}
         run: docker compose --profile codebase-memory build codebase-memory
 
-      - name: Start sidecar
+      - name: Start integrated stack
         env:
           MCP_WORKSPACE: ${{ github.workspace }}
-        run: docker compose --profile codebase-memory up -d codebase-memory
+          CODEBASE_MEMORY_PROXY_ENABLED: "true"
+        run: docker compose --profile codebase-memory up -d local-coding-mcp codebase-memory
 
       - name: Wait for health
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:9750/healthz >/dev/null; then
+            if curl -fsS http://127.0.0.1:9750/healthz >/dev/null \
+              && curl -fsS http://127.0.0.1:5000/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          docker compose --profile codebase-memory logs codebase-memory
+          docker compose --profile codebase-memory logs
           exit 1
 
-      - name: MCP initialize and tools/list
+      - name: Sidecar MCP initialize and tools/list
         run: |
           init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"local-coding-mcp-ci","version":"1.0"}}}'
-          curl -fsS -D /tmp/init.headers -o /tmp/init.body \
+          curl -fsS -D /tmp/cbm-init.headers -o /tmp/cbm-init.body \
             -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
             --data "$init" \
             http://127.0.0.1:9750/mcp
 
-          session="$(awk 'BEGIN{IGNORECASE=1} /^mcp-session-id:/ {gsub("\r", "", $2); print $2}' /tmp/init.headers | tail -n1)"
+          session="$(awk 'BEGIN{IGNORECASE=1} /^mcp-session-id:/ {gsub("\r", "", $2); print $2}' /tmp/cbm-init.headers | tail -n1)"
           test -n "$session"
-          grep -Eq 'serverInfo|server_info' /tmp/init.body
 
-          curl -fsS -o /tmp/initialized.body \
+          curl -fsS -o /tmp/cbm-initialized.body \
             -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
             -H "Mcp-Session-Id: $session" \
             --data '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
             http://127.0.0.1:9750/mcp
 
-          curl -fsS -o /tmp/tools.body \
+          curl -fsS -o /tmp/cbm-tools.body \
             -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
             -H "Mcp-Session-Id: $session" \
             --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
             http://127.0.0.1:9750/mcp
 
-          grep -q '"tools"' /tmp/tools.body
-          grep -Eq 'search|index|get_architecture' /tmp/tools.body
+          grep -q '"tools"' /tmp/cbm-tools.body
+          grep -Eq 'search|index|get_architecture' /tmp/cbm-tools.body
+
+      - name: LocalCodingMcp exposes Codebase Memory proxy tools
+        run: |
+          init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"proxy-ci","version":"1.0"}}}'
+          curl -fsS -o /tmp/local-init.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            --data "$init" \
+            http://127.0.0.1:5000/mcp
+
+          curl -fsS -o /tmp/local-tools.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            http://127.0.0.1:5000/mcp
+
+          grep -q 'codebase_memory_status' /tmp/local-tools.body
+          grep -q 'codebase_memory_list_tools' /tmp/local-tools.body
+          grep -q 'codebase_memory_call' /tmp/local-tools.body
+
+          curl -fsS -o /tmp/local-status.body \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codebase_memory_status","arguments":{}}}' \
+            http://127.0.0.1:5000/mcp
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw = Path('/tmp/local-status.body').read_text()
+          data_lines = [line[6:] for line in raw.splitlines() if line.startswith('data: ')]
+          outer = json.loads(data_lines[-1] if data_lines else raw)
+          blocks = outer['result']['content']
+          text = next(block['text'] for block in blocks if block.get('type') == 'text')
+          status = json.loads(text)
+          assert status['available'] is True, status
+          PY
 
       - name: Show logs on failure
         if: failure()
-        run: docker compose --profile codebase-memory logs --no-color codebase-memory
+        run: docker compose --profile codebase-memory logs --no-color
 
-      - name: Stop sidecar
+      - name: Stop stack
         if: always()
         run: docker compose --profile codebase-memory down --remove-orphans
