@@ -54,6 +54,16 @@ public static class McpServerRegistration
             : Path.Combine(contentRootPath, configuredSkillsPath);
         var skillStore = new SkillStore(skillsPath);
 
+        var remoteMaxBytes = Math.Clamp(configuration.GetValue("Skills:Remote:MaxBytes", 1_048_576), 1_024, 10_485_760);
+        var remoteTimeoutSeconds = Math.Clamp(configuration.GetValue("Skills:Remote:TimeoutSeconds", 15), 1, 120);
+        var remoteMaxRedirects = Math.Clamp(configuration.GetValue("Skills:Remote:MaxRedirects", 3), 0, 10);
+        var remoteHttpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            Timeout = TimeSpan.FromSeconds(remoteTimeoutSeconds)
+        };
+        var remoteFetcher = new RemoteSkillFetcher(remoteHttpClient, remoteMaxBytes, remoteMaxRedirects);
+        var remoteSkillService = new RemoteSkillService(skillStore, remoteFetcher);
+
         foreach (var root in allowedRoots)
         {
             try { Directory.CreateDirectory(root); } catch { /* ignore */ }
@@ -65,6 +75,8 @@ public static class McpServerRegistration
         services.AddSingleton(new CommandRunner(commandTimeout));
         services.AddSingleton(historyStore);
         services.AddSingleton(skillStore);
+        services.AddSingleton(remoteFetcher);
+        services.AddSingleton(remoteSkillService);
 
         var informationalVersion = typeof(McpServerRegistration).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -120,14 +132,8 @@ public static class McpServerRegistration
                 }
             }));
 
-        if (transport == LocalCodingMcpTransport.Stdio)
-        {
-            mcp.WithStdioServerTransport();
-        }
-        else
-        {
-            mcp.WithHttpTransport();
-        }
+        if (transport == LocalCodingMcpTransport.Stdio) mcp.WithStdioServerTransport();
+        else mcp.WithHttpTransport();
 
         return new LocalCodingMcpRuntime(allowedRoots, historyPath, skillsPath);
     }
