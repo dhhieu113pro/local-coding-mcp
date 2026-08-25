@@ -6,6 +6,9 @@
 # Public HTTPS via ngrok (needs NGROK_AUTHTOKEN in .env):
 #   docker compose --profile ngrok up -d
 #
+# Codebase Memory sidecar:
+#   docker compose --profile codebase-memory up -d
+#
 # Optional:
 #   docker compose --profile ide up -d
 #   docker compose --profile termux run --rm termux
@@ -36,6 +39,32 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Code intelligence MCP sidecar — profile: codebase-memory
+  # Uses DeusData/codebase-memory-mcp over stdio, bridged to Streamable HTTP.
+  # Host endpoint: http://127.0.0.1:9750/mcp
+  codebase-memory:
+    profiles: ["codebase-memory"]
+    build:
+      context: .
+      dockerfile: docker/codebase-memory/Dockerfile
+      args:
+        CODEBASE_MEMORY_VERSION: ${CODEBASE_MEMORY_VERSION:-v0.10.8}
+        SUPERGATEWAY_VERSION: ${SUPERGATEWAY_VERSION:-3.2.0}
+    container_name: local-coding-mcp-codebase-memory
+    working_dir: /workspace
+    environment:
+      CBM_CACHE_DIR: /var/lib/codebase-memory
+    volumes:
+      - ${MCP_WORKSPACE:-./workspace}:/workspace:ro
+      - ${CBM_DATA:-./codebase-memory}:/var/lib/codebase-memory
+    ports:
+      - "127.0.0.1:${CBM_PORT:-9750}:9750"
+    networks:
+      - mcp-net
+    restart: unless-stopped
+    mem_limit: ${CBM_MEMORY_LIMIT:-1g}
+    cpus: ${CBM_CPU_LIMIT:-2.0}
 
   # Public HTTPS via ngrok — profile: ngrok
   # Requires NGROK_AUTHTOKEN in .env
