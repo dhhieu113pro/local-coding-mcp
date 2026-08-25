@@ -35,6 +35,26 @@ public sealed class SkillRouterTests : IDisposable
     }
 
     [Fact]
+    public void RoutesCodebaseExplorationToCodebaseMemory()
+    {
+        using var context = CreateContext("codebase-memory");
+        var names = Route(context.Store, "Explore the codebase architecture and trace the call path before changing it");
+
+        Assert.Contains("codebase-memory", names);
+    }
+
+    [Fact]
+    public void CodebaseMemoryIsDisabledByDefault()
+    {
+        using var context = CreateContext();
+
+        var skill = context.Store.Get("codebase-memory");
+
+        Assert.True(skill.BuiltIn);
+        Assert.False(skill.Enabled);
+    }
+
+    [Fact]
     public void DisabledSkillsAreNeverRouted()
     {
         using var context = CreateContext("hallmark");
@@ -65,7 +85,7 @@ public sealed class SkillRouterTests : IDisposable
     [Fact]
     public void UnrelatedTaskDoesNotForceSkills()
     {
-        using var context = CreateContext("hallmark", "superpowers", "caveman", "ponytail");
+        using var context = CreateContext("hallmark", "superpowers", "caveman", "ponytail", "codebase-memory");
 
         var names = Route(context.Store, "What is the capital of France?");
 

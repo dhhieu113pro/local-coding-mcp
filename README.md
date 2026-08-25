@@ -23,6 +23,7 @@ Open a project folder (under approved roots only), list/read/write/patch files (
 |---|---|
 | **Setup (ngrok / Windows / WSL)** | **[SETUP.md](SETUP.md)** |
 | **DNX / local stdio** | **[DNX.md](DNX.md)** |
+| **Codebase Memory sidecar** | **[CODEBASE_MEMORY.md](CODEBASE_MEMORY.md)** |
 | **TermuxHost / Android ZIP** | **[TERMUXHOST.md](TERMUXHOST.md)** |
 | **Tool reference** | [LocalCodingMcp/README.md](LocalCodingMcp/README.md) |
 | **CI** | [![CI](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dhhieu113pro/local-coding-mcp/actions/workflows/ci.yml) |
@@ -95,6 +96,7 @@ The ZIP is framework-dependent and uses the .NET 10 runtime installed by TermuxH
 | Service | Profile | Port | Role |
 |---------|---------|------|------|
 | `local-coding-mcp` | (default) | **5000** | MCP `/mcp` |
+| `codebase-memory` | **`codebase-memory`** | **9750** localhost | Structural code-intelligence MCP `/mcp` |
 | `ngrok` | **`ngrok`** | **4040** inspector | Public HTTPS to MCP |
 | `code-server` | **`ide`** | **8443** | Browser VS Code |
 | `termux` | **`termux`** | — | Termux-like test shell |
@@ -198,7 +200,7 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 ### Built-in skills
 
-Four attributed built-in skills ship with the server and are **disabled by default**:
+Five attributed built-in skills ship with the server and are **disabled by default**:
 
 | Skill | Purpose | Upstream |
 |------|---------|----------|
@@ -206,13 +208,16 @@ Four attributed built-in skills ship with the server and are **disabled by defau
 | `hallmark` | Anti-template / anti-AI-slop UI design discipline | `Nutlope/hallmark` |
 | `superpowers` | Structured engineering, TDD, debugging, review and verification workflow | `tpffounder/superpowers` |
 | `ponytail` | Minimal, anti-over-engineering implementation discipline | `DietrichGebert/ponytail` |
+| `codebase-memory` | Codebase architecture, semantic exploration, call-path and impact-analysis workflow | `DeusData/codebase-memory-mcp` |
 
 Enable one without deleting or rewriting it:
 
 ```text
-SetSkillEnabled(name: "caveman", enabled: true)
-SetSkillEnabled(name: "caveman", enabled: false)
+SetSkillEnabled(name: "codebase-memory", enabled: true)
+SetSkillEnabled(name: "codebase-memory", enabled: false)
 ```
+
+When `codebase-memory` is enabled, routing can select it for codebase exploration, architecture, indexing, dependency/caller tracing, ADR, and impact-analysis tasks. Its instructions prefer Codebase Memory MCP for structural discovery, then LocalCodingMcp for exact file inspection, editing, shell/git operations, tests, and verification. If the sidecar/tools are unavailable, the skill explicitly falls back to normal LocalCodingMcp exploration.
 
 The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom and remotely installed skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
 

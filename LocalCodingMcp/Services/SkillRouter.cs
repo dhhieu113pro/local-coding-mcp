@@ -30,6 +30,12 @@ public sealed partial class SkillRouter
             ["ponytail"] =
             [
                 "simple", "simplify", "minimal", "minimum", "reuse", "yagni", "overengineering", "over-engineering"
+            ],
+            ["codebase-memory"] =
+            [
+                "codebase", "architecture", "architectural", "structure", "explore", "exploration", "semantic",
+                "index", "indexing", "impact", "dependency", "dependencies", "caller", "callers", "call-path",
+                "trace", "references", "adr"
             ]
         };
 
