@@ -9,10 +9,12 @@ namespace LocalCodingMcp.Tools;
 public sealed class SkillTools
 {
     private readonly SkillStore _skills;
+    private readonly SkillRouter _router;
 
     public SkillTools(SkillStore skills)
     {
         _skills = skills;
+        _router = new SkillRouter(skills);
     }
 
     [McpServerTool, Description("List all locally stored skills, including whether each skill is enabled and built in.")]
@@ -30,7 +32,40 @@ public sealed class SkillTools
         }));
     }
 
-    [McpServerTool, Description("Load complete content for every enabled skill. Call this before coding, debugging, design, planning, or review work, then follow every relevant enabled skill before using other LocalCodingMcp tools.")]
+    [McpServerTool, Description("Rank enabled skills for a task without loading full SKILL.md content. Call this first for coding, debugging, design, planning, or review work, then load only the recommended skills with load_skills.")]
+    public string RouteSkills([Description("The user's current task or goal")] string task)
+    {
+        return JsonSerializer.Serialize(_router.Route(task).Select(route => new
+        {
+            name = route.Name,
+            description = route.Description,
+            reason = route.Reason,
+            score = route.Score
+        }));
+    }
+
+    [McpServerTool, Description("Load complete SKILL.md content for selected enabled skills returned by route_skills. Disabled skills are ignored.")]
+    public string LoadSkills([Description("Skill names to load")] string[] names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        var selected = names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(_skills.Get)
+            .Where(skill => skill.Enabled)
+            .Select(skill => new
+            {
+                name = skill.Name,
+                content = skill.Content,
+                built_in = skill.BuiltIn,
+                source_url = skill.SourceUrl,
+                license = skill.License
+            });
+
+        return JsonSerializer.Serialize(selected);
+    }
+
+    [McpServerTool, Description("Load complete content for every enabled skill. Kept for backward compatibility; prefer route_skills followed by load_skills to avoid loading unrelated skills.")]
     public string LoadEnabledSkills()
     {
         return JsonSerializer.Serialize(_skills.ListEnabled().Select(skill => new
