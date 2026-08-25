@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <AssemblyName>LocalCodingMcp.Dnx</AssemblyName>
+    <RootNamespace>LocalCodingMcp</RootNamespace>
+    <PackageId>LocalCodingMcp.Dnx</PackageId>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Title>LocalCodingMcp DNX Server</Title>
+    <Authors>dhhieu113pro</Authors>
+    <Description>Secure local coding MCP server for files, git, shell, workspaces, execution history, and reusable skills.</Description>
+    <PackageTags>mcp;model-context-protocol;coding;git;shell;dnx</PackageTags>
+    <PackageProjectUrl>https://github.com/dhhieu113pro/local-coding-mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dhhieu113pro/local-coding-mcp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackAsTool>true</PackAsTool>
+    <PackageType>McpServer</PackageType>
+    <ToolCommandName>LocalCodingMcp</ToolCommandName>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../LocalCodingMcp/Services/**/*.cs" Link="Services/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LocalCodingMcp/Tools/**/*.cs" Link="Tools/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LocalCodingMcp/Hosting/**/*.cs" Link="Hosting/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <None Include="../LICENSE" Pack="true" PackagePath="/" />
+    <None Include=".mcp/server.json" Pack="false" />
+    <None Include="$(IntermediateOutputPath)mcp/server.json" Pack="true" PackagePath="/.mcp/" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="GenerateMcpServerManifest" BeforeTargets="GenerateNuspec">
+    <PropertyGroup>
+      <McpServerManifestSource>$(MSBuildProjectDirectory)/.mcp/server.json</McpServerManifestSource>
+      <McpServerManifestDirectory>$(IntermediateOutputPath)mcp</McpServerManifestDirectory>
+      <McpServerManifestOutput>$(McpServerManifestDirectory)/server.json</McpServerManifestOutput>
+      <McpServerManifestContent>$([System.IO.File]::ReadAllText('$(McpServerManifestSource)'))</McpServerManifestContent>
+      <McpServerManifestContent>$(McpServerManifestContent.Replace('&quot;version&quot;: &quot;0.0.0-placeholder&quot;', '&quot;version&quot;: &quot;$(Version)&quot;'))</McpServerManifestContent>
+    </PropertyGroup>
+    <MakeDir Directories="$(McpServerManifestDirectory)" />
+    <WriteLinesToFile File="$(McpServerManifestOutput)" Lines="$(McpServerManifestContent)" Overwrite="true" />
+  </Target>
+
+</Project>

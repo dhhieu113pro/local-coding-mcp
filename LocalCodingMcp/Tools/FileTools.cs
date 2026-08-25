@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using LocalCodingMcp.Services;
+using Microsoft.Extensions.Configuration;
 using ModelContextProtocol.Server;
 
 namespace LocalCodingMcp.Tools;
