@@ -86,12 +86,18 @@ public class SkillToolsTests : IDisposable
             var tools = new SkillTools(new SkillStore(root));
 
             using var list = JsonDocument.Parse(tools.ListSkills());
-            Assert.Equal(4, list.RootElement.GetArrayLength());
+            Assert.Equal(5, list.RootElement.GetArrayLength());
             var caveman = list.RootElement.EnumerateArray().Single(x => x.GetProperty("name").GetString() == "caveman");
             Assert.False(caveman.GetProperty("enabled").GetBoolean());
             Assert.True(caveman.GetProperty("built_in").GetBoolean());
             Assert.Equal("MIT", caveman.GetProperty("license").GetString());
             Assert.Contains("JuliusBrussee/caveman", caveman.GetProperty("source_url").GetString());
+
+            var codebaseMemory = list.RootElement.EnumerateArray().Single(x => x.GetProperty("name").GetString() == "codebase-memory");
+            Assert.False(codebaseMemory.GetProperty("enabled").GetBoolean());
+            Assert.True(codebaseMemory.GetProperty("built_in").GetBoolean());
+            Assert.Equal("MIT", codebaseMemory.GetProperty("license").GetString());
+            Assert.Contains("DeusData/codebase-memory-mcp", codebaseMemory.GetProperty("source_url").GetString());
 
             tools.SetSkillEnabled("caveman", true);
             using var enabled = JsonDocument.Parse(tools.LoadEnabledSkills());
