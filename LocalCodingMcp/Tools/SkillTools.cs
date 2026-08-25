@@ -191,12 +191,12 @@ public sealed class SkillTools
         });
     }
 
-    [McpServerTool, Description("Enable or disable a skill without deleting it. State persists across server restarts.")]
+    [McpServerTool, Description("Enable or disable a skill without deleting it. State persists across server restarts and is treated as an explicit user preference.")]
     public string SetSkillEnabled(
         [Description("Existing skill name")] string name,
         [Description("true to enable, false to disable")] bool enabled)
     {
-        var skill = _skills.SetEnabled(name, enabled);
+        var skill = _skills.SetEnabledFromUser(name, enabled);
         return JsonSerializer.Serialize(new { name = skill.Name, enabled = skill.Enabled, built_in = skill.BuiltIn });
     }
 
