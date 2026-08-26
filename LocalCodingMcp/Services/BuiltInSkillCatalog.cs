@@ -164,20 +164,20 @@ public static class BuiltInSkillCatalog
 
             # Codebase Memory
 
-            Use Codebase Memory as the first source of structural code intelligence when the LocalCodingMcp proxy reports it available.
+            Use Codebase Memory as the first source of structural code intelligence when LocalCodingMcp reports it available for the opened workspace.
 
             ## Workflow
 
-            1. Call `codebase_memory_status` before relying on Codebase Memory.
-            2. When available, call `codebase_memory_list_tools` to inspect the current upstream tool names and schemas rather than guessing arguments.
-            3. Invoke the appropriate upstream tool through `codebase_memory_call`.
-            4. For an unfamiliar repository, ensure indexing/coverage before doing broad exploration.
+            1. Open the project with `open_workspace`. LocalCodingMcp owns Codebase Memory availability and index lifecycle and returns a `codebase_memory` state with the workspace result.
+            2. If the state is `ready` or `indexed`, use `codebase_memory_list_tools` when the required upstream tool name or schema is uncertain, then invoke the appropriate tool through `codebase_memory_call`.
+            3. If the state is `stale`, keep using the existing index for lightweight navigation or call `refresh_codebase_memory_workspace` explicitly when the task needs fresh structural results. Do not silently rebuild it.
+            4. Use `codebase_memory_status` for diagnostics when availability needs investigation; it is not a mandatory preflight before every structural query.
             5. Ask for architecture/structure first when the task spans modules, services, packages, or layers.
             6. Prefer Codebase Memory search or semantic queries to opening many files speculatively.
             7. Trace call paths and references before changing shared APIs, services, data models, or cross-cutting behavior.
             8. Use impact/change analysis before edits that may affect callers or dependent modules.
             9. After narrowing the relevant code paths, use LocalCodingMcp file/git/shell tools for exact source inspection, edits, tests, and verification.
-            10. If the proxy is unavailable or the repository cannot be indexed, fall back to normal LocalCodingMcp exploration rather than blocking the task.
+            10. If the `codebase_memory` state is unavailable or indexing fails, fall back to normal LocalCodingMcp exploration rather than blocking the task.
 
             ## Boundaries
 

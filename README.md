@@ -77,9 +77,9 @@ docker compose logs ngrok
 # copy https://xxxx.ngrok-free.app
 ```
 
-ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. You do not need to configure the Codebase Memory port separately: LocalCodingMcp exposes `codebase_memory_status`, `codebase_memory_list_tools`, and `codebase_memory_call` through the same `/mcp` endpoint.
+ChatGPT / Grok → **Connection → URL** → `https://xxxx.ngrok-free.app/mcp` → new chat. You do not need to configure the Codebase Memory port separately: LocalCodingMcp exposes its Codebase Memory workflow through the same `/mcp` endpoint.
 
-For coding/debugging/design/planning/review tasks, the server advertises instructions to call `route_skills` first and `load_skills` only for the recommendations; then use `open_workspace` with `/workspace/...`.
+For coding/debugging/design/planning/review tasks, the server advertises instructions to call `route_skills` first and `load_skills` only for the recommendations; then use `open_workspace` with `/workspace/...`. When the Codebase Memory proxy is enabled, its built-in skill is enabled automatically unless you have explicitly overridden that preference.
 
 ### TermuxHost release ZIP
 
@@ -113,16 +113,19 @@ Network: **`mcp-net`**. Secrets: **`.env`** (see `.env.example`).
 ```text
 route_skills(task)
 load_skills([recommended skill names])
-open_workspace(path)  →  workspace_id
+open_workspace(path)  →  workspace_id + codebase_memory state
 list_directory / read_file / search_files
 write_file / write_binary_file / apply_patch
 run_command
 git_status / git_diff / git_log
 
-# Optional structural code intelligence through the same LocalCodingMcp connection
-codebase_memory_status
+# Structural code intelligence when codebase_memory is ready/indexed
 codebase_memory_list_tools
 codebase_memory_call(tool, arguments_json)
+# If open_workspace reports stale and fresh structure is needed:
+refresh_codebase_memory_workspace(workspace_id)
+# Diagnostic only when availability needs investigation:
+codebase_memory_status
 
 list_skills
 set_skill_enabled("ponytail", true)
@@ -149,7 +152,9 @@ docker compose --profile codebase-memory up -d
 
 LocalCodingMcp connects internally to `http://codebase-memory:9750/mcp`. Clients continue using only `http://127.0.0.1:5000/mcp` (or the existing ngrok URL).
 
-The proxy surface is intentionally small:
+`open_workspace` coordinates Codebase Memory automatically: it reuses a healthy index, indexes a missing workspace, reports stale indexes without silently rebuilding them, and still succeeds when the sidecar is unavailable. Use `refresh_codebase_memory_workspace(workspace_id)` when a stale index genuinely needs refreshing.
+
+The generic proxy surface remains intentionally small:
 
 ```text
 codebase_memory_status()
@@ -157,7 +162,7 @@ codebase_memory_list_tools()
 codebase_memory_call(tool, arguments_json)
 ```
 
-`codebase_memory_call` validates the requested name against the sidecar's current `tools/list` result before forwarding it. Use `codebase_memory_list_tools` to inspect the exact upstream schema instead of guessing arguments. When the sidecar is unavailable, `codebase_memory_status` reports that state without breaking LocalCodingMcp.
+`codebase_memory_call` validates the requested name against the sidecar's current `tools/list` result before forwarding it. Use `codebase_memory_list_tools` to inspect the exact upstream schema instead of guessing arguments. `codebase_memory_status` is primarily diagnostic; normal availability/index lifecycle is already reported by `open_workspace`.
 
 Configuration:
 
@@ -167,7 +172,7 @@ CodebaseMemory__Endpoint=http://codebase-memory:9750/mcp
 CodebaseMemory__ConnectionTimeoutSeconds=15
 ```
 
-Compose maps these from `CODEBASE_MEMORY_PROXY_*` values in `.env`. See **[CODEBASE_MEMORY.md](CODEBASE_MEMORY.md)** for architecture, security, and verification details.
+Compose maps these from `CODEBASE_MEMORY_PROXY_*` values in `.env`. See **[CODEBASE_MEMORY.md](CODEBASE_MEMORY.md)** for architecture, security, lifecycle, and verification details.
 
 ---
 
@@ -216,7 +221,8 @@ Skills__Remote__MaxRedirects=3
 | **CodebaseMemoryStatus** | Report whether the optional Codebase Memory proxy is configured/reachable |
 | **CodebaseMemoryListTools** | Return the sidecar's current MCP tool catalog and input schemas |
 | **CodebaseMemoryCall** | Forward an advertised Codebase Memory tool call through LocalCodingMcp |
-| **OpenWorkspace** | Open folder under allowed roots → `workspace_id` |
+| **OpenWorkspace** | Open folder under allowed roots → `workspace_id`; also coordinates Codebase Memory lifecycle |
+| **RefreshCodebaseMemoryWorkspace** | Explicitly refresh a stale Codebase Memory index for an open workspace |
 | **ListWorkspaces** | List open workspaces |
 | **GetAllowedRoots** | Show configured allowed roots |
 | **ListDirectory** | List files/dirs |
@@ -233,7 +239,7 @@ Skills__Remote__MaxRedirects=3
 | **RunCommand** | Shell in workspace |
 | **GetExecutionHistory** | Recent persisted tool calls, status, and duration |
 | **ListSkills** | List skills with enabled/built-in state and attribution/provenance |
-| **SetSkillEnabled** | Persistently enable/disable any skill |
+| **SetSkillEnabled** | Persistently enable/disable any skill as an explicit user preference |
 | **GetSkill** | Read complete `SKILL.md` content and state |
 | **CreateSkill** | Create an enabled custom `<skills>/<name>/SKILL.md` from caller-supplied content |
 | **UpdateSkill** | Replace an existing skill's `SKILL.md` manually |
@@ -243,7 +249,7 @@ Details: **[LocalCodingMcp/README.md](LocalCodingMcp/README.md)**
 
 ### Built-in skills
 
-Five attributed built-in skills ship with the server and are **disabled by default**:
+Five attributed built-in skills ship with the server. `caveman`, `hallmark`, `superpowers`, and `ponytail` are disabled by default. `codebase-memory` follows the Codebase Memory proxy configuration automatically: it is system-enabled when the proxy is enabled and system-disabled when the proxy is disabled, unless you explicitly choose otherwise with `SetSkillEnabled`.
 
 | Skill | Purpose | Upstream |
 |------|---------|----------|
@@ -253,18 +259,18 @@ Five attributed built-in skills ship with the server and are **disabled by defau
 | `ponytail` | Minimal, anti-over-engineering implementation discipline | `DietrichGebert/ponytail` |
 | `codebase-memory` | Codebase architecture, semantic exploration, call-path and impact-analysis workflow | `DeusData/codebase-memory-mcp` |
 
-Enable one without deleting or rewriting it:
+Override any built-in without deleting or rewriting it:
 
 ```text
 SetSkillEnabled(name: "codebase-memory", enabled: true)
 SetSkillEnabled(name: "codebase-memory", enabled: false)
 ```
 
-When `codebase-memory` is enabled, routing can select it for codebase exploration, architecture, indexing, dependency/caller tracing, ADR, and impact-analysis tasks. Its instructions now use the LocalCodingMcp proxy tools (`codebase_memory_status` → `codebase_memory_list_tools` → `codebase_memory_call`) rather than requiring the MCP client to connect to a second server. After structural discovery it returns to LocalCodingMcp file/git/shell tools for exact source inspection, editing, tests, and verification. If the sidecar is unavailable, the skill explicitly falls back to normal LocalCodingMcp exploration.
+An explicit enable/disable choice takes precedence over the Codebase Memory system default and persists across restarts. When `codebase-memory` is enabled, routing can select it for codebase exploration, architecture, indexing, dependency/caller tracing, ADR, and impact-analysis tasks. Its workflow starts from `open_workspace`, which now owns availability and index lifecycle, then uses the LocalCodingMcp proxy for structural queries. It returns to LocalCodingMcp file/git/shell tools for exact source inspection, editing, tests, and verification. If the sidecar is unavailable, the skill falls back to normal LocalCodingMcp exploration.
 
 The server includes MCP initialization instructions telling clients to call `route_skills` before coding, debugging, design, planning, or review work. Routing is deterministic and local: it scores only enabled skills using their name/front-matter description plus small built-in intent hints, then `load_skills` returns full content only for the selected skills. Custom and remotely installed skills participate automatically when their `description:` front matter matches the task. Client/model compliance with server instructions still depends on the MCP host.
 
-Enable state is stored in `<skill>/.skill.json`, so it survives process, Docker, and Termux restarts. Existing skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
+Enable state is stored in skill metadata, with separate markers for Codebase Memory's system default and an explicit user choice, so the intended behavior survives process, Docker, and Termux restarts. Existing custom skills created before this feature have no metadata file and remain enabled by default for backward compatibility. Built-ins cannot be deleted; disable them instead.
 
 Skills are stored under `LocalCodingMcp/data/skills` by default. Override the location with `Skills__Directory`. Under Docker Compose, `/app/data` is already persisted by the existing `${MCP_HISTORY:-./history}` volume, so skills survive container restarts together with execution history.
 
